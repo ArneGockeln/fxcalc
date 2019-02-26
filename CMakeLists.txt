@@ -15,6 +15,7 @@ set(CMAKE_AUTORCC ON)
 
 find_package(Qt5Core REQUIRED)
 find_package(Qt5Widgets REQUIRED)
+find_package(Qt5Network REQUIRED)
 
 set(PROJECT_SOURCE_DIR src/)
 include_directories(${PROJECT_SOURCE_DIR})
@@ -23,4 +24,4 @@ file(GLOB SOURCE_FILES ${PROJECT_SOURCE_DIR}/*.cpp)
 
 add_executable(${PROJECT_NAME} ${SOURCE_FILES} ${RESOURCE_FILES})
 
-target_link_libraries(${PROJECT_NAME} Qt5::Core Qt5::Widgets)
+target_link_libraries(${PROJECT_NAME} Qt5::Core Qt5::Widgets Qt5::Network)
