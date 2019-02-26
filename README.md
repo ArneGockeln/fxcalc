@@ -1,0 +1,2 @@
+# poscalc
+FX Position Calculator
