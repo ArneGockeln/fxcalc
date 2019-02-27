@@ -12,21 +12,22 @@ class Fixer: public QObject {
 	Q_OBJECT
 
 public:
-	Fixer(const QString api_url, const QString api_key);
-	void latest(const QString instruments);
+	Fixer(const QString api_url);
+	void latest(const QString instruments = "");
+	void setBaseCurrency(const QString currency);
 
 signals:
-	void response(QJsonDocument json);
+	void onResponse(QJsonDocument json);
+	void onError(const QString msg);
 
-public slots:
+private slots:
 	void onResult(QNetworkReply* reply);
 
 private:
 	QNetworkReply* m_nw_reply;
 	QNetworkAccessManager* m_nw_access_mgr;
 	QByteArray* m_buffer;
-	QString m_api_key;
 	QString m_api_url;
-
+	QString m_base_currency;
 };
 };

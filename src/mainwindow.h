@@ -7,9 +7,11 @@
 #include <QComboBox>
 #include <QLabel>
 
+#include <map>
+
 #include "fixer.h"
 
-#define FIXER_API_URL "http://data.fixer.io/api/"
+#define FIXER_API_URL "https://api.exchangeratesapi.io/"
 
 namespace poscalc {
 class MainWindow: public QMainWindow {
@@ -22,20 +24,29 @@ public slots:
 	void calculate();
 	void fetchExchangeRate();
 
-private:
-	void checkAPIKey();
-	void initForm();
+	void onRiskChange();
+	void onSLChange();
+	void onAccountCurrencyChange();
+	void onAccountBalanceChange();
+	void onInstrumentChange();
 
-	QLineEdit* m_edit_account_size;
+private:
+	void initForm();
+	void save();
+	void load();
+
+	QLineEdit* m_edit_account_balance;
 	QLineEdit* m_edit_risk_percent;
 	QLineEdit* m_edit_sl_pips;
 	QComboBox* m_cb_account_currency;
 	QComboBox* m_cb_instrument;
 	QLabel* m_label_current_ask_price;
 	QLabel* m_label_result_risk;
-	QLabel* m_label_units;
-	QLabel* m_label_lots;
-	QString m_api_key;
+	QLineEdit* m_edit_units;
+	QLineEdit* m_edit_lots;
+	QPushButton* m_btn_refresh_rates;
 	Fixer* m_api;
+	std::map<QString, double> m_rates;
+	std::map<QString, int> m_currency_priority;
 };	
 };
