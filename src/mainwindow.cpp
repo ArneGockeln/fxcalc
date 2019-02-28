@@ -1,33 +1,24 @@
 #include "mainwindow.h"
 
+#include <QDebug>
+
+#include <QDesktopWidget>
 #include <QClipboard>
 #include <QStatusBar>
 #include <QRegularExpression>
 #include <QRegularExpressionMatch>
-#include <QDebug>
-#include <QIntValidator>
-#include <QDoubleValidator>
-#include <QDesktopWidget>
 #include <QApplication>
-#include <QPushButton>
 #include <QFile>
-#include <QStringLiteral>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
-#include <QInputDialog>
 #include <QStandardPaths>
 #include <QMessageBox>
 #include <QTextStream>
-#include <QNetworkAccessManager>
-#include <QNetworkReply>
-#include <QNetworkRequest>
-#include <QHBoxLayout>
-#include <QFormLayout>
 
 namespace poscalc {
-	MainWindow::MainWindow(): m_api( new Fixer( FIXER_API_URL ) ) {
-		setWindowTitle( tr( "FX Position Calculator" ) );
+	MainWindow::MainWindow(): api_( new Fixer( FIXER_API_URL ) ) {
+		setWindowTitle( tr( "FX Calculator" ) );
 
 		auto screenRect = QApplication::desktop()->screenGeometry();
 
@@ -48,41 +39,45 @@ namespace poscalc {
 	}
 
 	void MainWindow::initForm() {
-		m_edit_account_balance = new QLineEdit;
-		m_edit_risk_percent    = new QLineEdit;
-		m_edit_sl_pips         = new QLineEdit;
-		m_cb_account_currency  = new QComboBox;
-		m_cb_instrument        = new QComboBox;
 
-		m_cb_account_currency->setInsertPolicy( QComboBox::NoInsert );
-		m_cb_instrument->setInsertPolicy( QComboBox::NoInsert );
+		// create currency priority
+		currency_priority_.insert( std::pair<QString, int>("RUB", 310) );
+		currency_priority_.insert( std::pair<QString, int>("MXN", 320) );
+		currency_priority_.insert( std::pair<QString, int>("LTL", 330) );
+		currency_priority_.insert( std::pair<QString, int>("HRK", 340) );
+		currency_priority_.insert( std::pair<QString, int>("SEK", 350) );
+		currency_priority_.insert( std::pair<QString, int>("ZAR", 360) );
+		currency_priority_.insert( std::pair<QString, int>("NOK", 380) );
+		currency_priority_.insert( std::pair<QString, int>("LVL", 390) );
+		currency_priority_.insert( std::pair<QString, int>("HUF", 400) );
+		currency_priority_.insert( std::pair<QString, int>("HKD", 410) );
+		currency_priority_.insert( std::pair<QString, int>("CZK", 420) );
+		currency_priority_.insert( std::pair<QString, int>("PLN", 430) );
+		currency_priority_.insert( std::pair<QString, int>("DKK", 440) );
+		currency_priority_.insert( std::pair<QString, int>("SGD", 450) );
+		currency_priority_.insert( std::pair<QString, int>("CHF", 460) );
+		currency_priority_.insert( std::pair<QString, int>("CNH", 470) );
+		currency_priority_.insert( std::pair<QString, int>("CAD", 500) );
+		currency_priority_.insert( std::pair<QString, int>("USD", 600) );
+		currency_priority_.insert( std::pair<QString, int>("NZD", 700) );
+		currency_priority_.insert( std::pair<QString, int>("JPY", 300) );
+		currency_priority_.insert( std::pair<QString, int>("AUD", 800) );
+		currency_priority_.insert( std::pair<QString, int>("GBP", 900) );
+		currency_priority_.insert( std::pair<QString, int>("EUR", 1000) );
 
-		auto balanceValidator = new QDoubleValidator(0, 999999999, 2, this );
-		balanceValidator->setNotation( QDoubleValidator::StandardNotation );
-		m_edit_account_balance->setValidator( balanceValidator );
+		// create form
+		form_ = new Form;
 
-		auto riskValidator = new QDoubleValidator(0, 100, 2, this );
-		riskValidator->setNotation( QDoubleValidator::StandardNotation );
-		m_edit_risk_percent->setValidator( riskValidator );
-
-		auto pipValidator = new QIntValidator(0, 9999, this );
-		m_edit_sl_pips->setValidator( pipValidator );
-
-		m_label_current_ask_price = new QLabel( QString::number( 0 ) );
-		m_label_result_risk       = new QLabel( QString::number( 0 ) );
-		m_edit_units              = new QLineEdit( QString::number( 0 ) );
-		m_edit_lots               = new QLineEdit( QString::number( 0 ) );
-		
-		// account currencies
-		m_cb_account_currency->addItem( "AUD" );
-		m_cb_account_currency->addItem( "CAD" );
-		m_cb_account_currency->addItem( "CHF" );
-		m_cb_account_currency->addItem( "EUR" );
-		m_cb_account_currency->addItem( "GBP" );
-		m_cb_account_currency->addItem( "JPY" );
-		m_cb_account_currency->addItem( "NZD" );
-		m_cb_account_currency->addItem( "USD" );
-		m_cb_account_currency->setCurrentText( "EUR" );
+		// add account currencies
+		form_->cbAccountCurrency()->addItem( "AUD" );
+		form_->cbAccountCurrency()->addItem( "CAD" );
+		form_->cbAccountCurrency()->addItem( "CHF" );
+		form_->cbAccountCurrency()->addItem( "EUR" );
+		form_->cbAccountCurrency()->addItem( "GBP" );
+		form_->cbAccountCurrency()->addItem( "JPY" );
+		form_->cbAccountCurrency()->addItem( "NZD" );
+		form_->cbAccountCurrency()->addItem( "USD" );
+		form_->cbAccountCurrency()->setCurrentText( "EUR" );
 
 		// load instruments from list
 		QFile instrumentsFile(":/instruments.txt");
@@ -93,98 +88,77 @@ namespace poscalc {
 		QTextStream in(&instrumentsFile);
 		while( ! in.atEnd() ) {
 			QString instrument = in.readLine();
-			m_cb_instrument->addItem( instrument );
+			form_->cbInstrument()->addItem( instrument );
 		}
 		instrumentsFile.close();
 
-		// refresh rates button
-		m_btn_refresh_rates = new QPushButton(tr("Refresh"), this);
-
-		// create form
-		QFormLayout* layout = new QFormLayout;
-		layout->addRow( tr("Account Currency"), m_cb_account_currency );
-		layout->addRow( tr("Instrument"), m_cb_instrument );
-		layout->addRow( "", m_btn_refresh_rates );
-		layout->addRow( tr("Account Balance"), m_edit_account_balance );
-		layout->addRow( tr("Risk Ratio, %"), m_edit_risk_percent );
-		layout->addRow( tr("Stoploss, Pips"), m_edit_sl_pips );
-		layout->addRow( tr("Current Ask"), m_label_current_ask_price );
-		layout->addRow( tr("Risk"), m_label_result_risk );
-		layout->addRow( tr("Units"), m_edit_units  );
-		layout->addRow( tr("Lots"), m_edit_lots  );
-
-		layout->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
-
-		QWidget* main_widget = new QWidget;
-		main_widget->setLayout( layout );
-		
-		setCentralWidget( main_widget );
-
-		// set currency priority
-		m_currency_priority.insert( std::pair<QString, int>("RUB", 310) );
-		m_currency_priority.insert( std::pair<QString, int>("MXN", 320) );
-		m_currency_priority.insert( std::pair<QString, int>("LTL", 330) );
-		m_currency_priority.insert( std::pair<QString, int>("HRK", 340) );
-		m_currency_priority.insert( std::pair<QString, int>("SEK", 350) );
-		m_currency_priority.insert( std::pair<QString, int>("ZAR", 360) );
-		m_currency_priority.insert( std::pair<QString, int>("NOK", 380) );
-		m_currency_priority.insert( std::pair<QString, int>("LVL", 390) );
-		m_currency_priority.insert( std::pair<QString, int>("HUF", 400) );
-		m_currency_priority.insert( std::pair<QString, int>("HKD", 410) );
-		m_currency_priority.insert( std::pair<QString, int>("CZK", 420) );
-		m_currency_priority.insert( std::pair<QString, int>("PLN", 430) );
-		m_currency_priority.insert( std::pair<QString, int>("DKK", 440) );
-		m_currency_priority.insert( std::pair<QString, int>("SGD", 450) );
-		m_currency_priority.insert( std::pair<QString, int>("CHF", 460) );
-		m_currency_priority.insert( std::pair<QString, int>("CNH", 470) );
-		m_currency_priority.insert( std::pair<QString, int>("CAD", 500) );
-		m_currency_priority.insert( std::pair<QString, int>("USD", 600) );
-		m_currency_priority.insert( std::pair<QString, int>("NZD", 700) );
-		m_currency_priority.insert( std::pair<QString, int>("JPY", 300) );
-		m_currency_priority.insert( std::pair<QString, int>("AUD", 800) );
-		m_currency_priority.insert( std::pair<QString, int>("GBP", 900) );
-		m_currency_priority.insert( std::pair<QString, int>("EUR", 1000) );
-
-		// restore values from config file
+		// load settings from file
 		load();
 
-		// connections
-		QObject::connect( m_edit_account_balance, SIGNAL(editingFinished()), this, SLOT(onAccountBalanceChange()));
-		QObject::connect( m_edit_risk_percent, SIGNAL(editingFinished()), this, SLOT(onRiskChange()));
-		QObject::connect( m_edit_sl_pips, SIGNAL(editingFinished()), this, SLOT(onSLChange()));
-		QObject::connect( m_cb_account_currency, SIGNAL(currentTextChanged(QString)), this, SLOT(onAccountCurrencyChange()));
-		QObject::connect( m_cb_instrument, SIGNAL(currentTextChanged(QString)), this, SLOT(onInstrumentChange()));
-		QObject::connect( m_btn_refresh_rates, SIGNAL(clicked()), this, SLOT(onAccountCurrencyChange()));
-	}
+		// set central widget
+		setCentralWidget(form_);
 
+		// connections
+		connect( form_->editAccountBalance(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
+		connect( form_->editRiskPercent(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
+		connect( form_->editSLPips(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
+		connect( form_->editMarginRatio(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
+		connect( form_->editCommission(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
+		connect( form_->cbInstrument(), &QComboBox::currentTextChanged, this, &MainWindow::calculate );
+		
+		connect( form_->cbAccountCurrency(), &QComboBox::currentTextChanged, this, &MainWindow::onAccountCurrencyChange );
+		connect( form_->btnRefreshRates(), &QPushButton::clicked, this, &MainWindow::onAccountCurrencyChange );
+
+		connect( form_->btnCopyUnits(), &QPushButton::clicked, [this]() {
+			// copy units to clipboard
+			auto clipboard = QGuiApplication::clipboard();
+			if ( clipboard != nullptr ) {
+				clipboard->setText( form_->editUnits()->text() );
+
+				statusBar()->showMessage( tr("Units copied to clipboard."), 2000);
+			}
+		});
+		connect( form_->btnCopyLots(), &QPushButton::clicked, [this]() {
+			// copy lots to clipboard
+			auto clipboard = QGuiApplication::clipboard();
+			if ( clipboard != nullptr ) {
+				clipboard->setText( form_->editLots()->text() );
+
+				statusBar()->showMessage( tr("Lots copied to clipboard."), 2000);
+			}
+		});
+
+	}
+	
 	/**
 	 * If account currency is changed, fetch new exchange rate
 	 * SLOT
 	 */
 	void MainWindow::fetchExchangeRate() {
-		if ( m_api == nullptr ) {
+		if ( api_ == nullptr ) {
 			QMessageBox::critical(this, tr("Error"), tr("The API is not initialized.") );
 			return;
 		}
 
+		// update status bar
 		statusBar()->showMessage( tr("Sending request for exchange rates...") );
 
 		// send latest request
-		m_api->latest();
+		api_->latest();
 
 		// handle json response
-		QObject::connect( m_api, &Fixer::onResponse, [this](QJsonDocument doc) {
+		QObject::connect( api_, &Fixer::onResponse, [this](QJsonDocument doc) {
 			auto json = doc.object();
-			auto base = ( json.contains("base") ? json["base"].toString() : m_cb_account_currency->currentText() );
+			auto base = ( json.contains("base") ? json["base"].toString() : form_->cbAccountCurrency()->currentText() );
 			if ( json.contains( "rates" ) && json["rates"].isObject() ) {
 				auto rates = json["rates"].toObject();
 				foreach( const QString& key, rates.keys() ) {
 					auto value = rates.value( key );
 					// try to insert
-					auto insert = m_rates.insert( std::pair<QString, double>( key, value.toDouble() ) );
+					auto insert = rates_.insert( std::pair<QString, double>( key, value.toDouble() ) );
 					if ( ! insert.second ) {
 						// failed, try to update
-						m_rates[ key ] = value.toDouble();
+						rates_[ key ] = value.toDouble();
 					}
 				}
 
@@ -197,7 +171,7 @@ namespace poscalc {
 			}
 		});
 		// error response
-		QObject::connect( m_api, &Fixer::onError, [this](const QString msg) {
+		QObject::connect( api_, &Fixer::onError, [this](const QString msg) {
 			statusBar()->showMessage( tr("API Error."), 5000 );
 			QMessageBox::critical(this, tr("Error"), msg);
 		});
@@ -213,48 +187,79 @@ namespace poscalc {
 
 		statusBar()->showMessage(tr("Calculating..."));
 
-		if ( m_edit_risk_percent->text().isEmpty() ) return;
-		if ( m_edit_account_balance->text().isEmpty() ) return;
-		if ( m_edit_sl_pips->text().isEmpty() ) return;
-		if ( m_rates.size() == 0 ) return;
+		if ( form_->editRiskPercent()->text().isEmpty() ) return;
+		if ( form_->editAccountBalance()->text().isEmpty() ) return;
+		if ( form_->editSLPips()->text().isEmpty() ) return;
+		if ( rates_.size() == 0 ) return;
+
+		//
+		// ------------ CONVERT DOUBLE and INTEGER VALUES
+		// 
 
 		bool ok(false);
-		double account_size = m_edit_account_balance->text().toDouble(&ok);
+		double account_size = QLocale::system().toDouble( form_->editAccountBalance()->text(), &ok );
 		if ( ! ok ) {
-			QMessageBox::information(this, tr("Info"), tr("Couldn't convert balance to double."));
+			statusBar()->showMessage(tr("Couldn't convert balance to double."), 3000);
 			return;
 		}
 
 		ok = false;
-		double risk_percent = m_edit_risk_percent->text().toDouble(&ok);
+		double risk_percent = QLocale::system().toDouble( form_->editRiskPercent()->text(), &ok );
 		if ( ! ok ) {
-			QMessageBox::information(this, tr("Info"), tr("Couldn't convert risk to double."));
+			statusBar()->showMessage(tr("Couldn't convert risk to double."), 3000);
 			return;
 		}
 
 		ok = false;
-		int sl_pips = m_edit_sl_pips->text().toInt(&ok);
+		int sl_pips = QLocale::system().toInt( form_->editSLPips()->text(), &ok );
 		if ( ! ok ) {
-			QMessageBox::information(this, tr("Info"), tr("Couldn't convert pips to integer."));
+			statusBar()->showMessage(tr("Couldn't convert pips to integer."), 3000);
 			return;
 		}
 
+		double commissions = 0;
+		if ( ! form_->editCommission()->text().isEmpty() ) {
+			ok = false;
+			commissions = QLocale::system().toDouble( form_->editCommission()->text(), &ok );
+			if ( ! ok ) {
+				statusBar()->showMessage(tr("Couldn't convert commission to double."), 3000);
+			}
+		}
+
+		int margin_ratio = 0;
+		if ( ! form_->editMarginRatio()->text().isEmpty() ) {
+			ok = false;
+			margin_ratio = QLocale::system().toInt( form_->editMarginRatio()->text(), &ok );
+			if ( ! ok ) {
+				statusBar()->showMessage(tr("Couldn't convert margin ratio to int."), 3000);
+			}
+		}
+		
+		//
+		// ----------------------- DEFAULT VALUES
+		// 
 		double current_price = 1;
 		double unit_costs    = 0.0001;
-		QString currency     = m_cb_account_currency->currentText(); 
+		QString currency     = form_->cbAccountCurrency()->currentText(); 
+		QString first_currency;
 		QString second_currency;
+		
+		// calculate risk in account currency
 		double risk          = ( risk_percent * account_size ) / 100;
 
-		QRegularExpression re(".{3}$");
-		QRegularExpressionMatch match = re.match( m_cb_instrument->currentText() );
+		// get second currency from pair by using regular expression
+		// split currency pair in two parts like: EURUSD => (EUR), (USD)
+		QRegularExpression re(".{3}");
+		QRegularExpressionMatch match = re.match( form_->cbInstrument()->currentText() );
 		if ( match.hasMatch() ) {
-			second_currency = match.captured(0);
+			first_currency  = match.captured(0);
+			second_currency = match.captured(1);
 		}
 
 		// find rate for the second currency
 		if ( second_currency != currency ) {
-			auto it = m_rates.find( second_currency );
-			if ( it != m_rates.end() ) {
+			auto it = rates_.find( second_currency );
+			if ( it != rates_.end() ) {
 				current_price = it->second;
 			}
 		}
@@ -262,7 +267,7 @@ namespace poscalc {
 		QString firstAffCur;
 		QString secondAffCur;
 		// get currency priority
-		if ( m_currency_priority[currency] > m_currency_priority[second_currency] || m_currency_priority[second_currency] == 0 ) {
+		if ( currency_priority_[currency] > currency_priority_[second_currency] || currency_priority_[second_currency] == 0 ) {
 			firstAffCur = currency;
 			secondAffCur = second_currency;
 		} else {
@@ -274,52 +279,59 @@ namespace poscalc {
 		
 		if ( ! secondAffCur.isEmpty() ) {
 			if ( stype == " Ask price" ) {
-				if ( secondAffCur == "JPY" ) unit_costs = unit_costs / ( current_price / 100 );
-				else unit_costs = unit_costs / current_price;
+				if ( secondAffCur == "JPY" ) {
+					unit_costs = unit_costs / ( current_price / 100 );
+				} else {
+					unit_costs = unit_costs / current_price;
+				}
 			} else {
-				if ( secondAffCur == "JPY" ) unit_costs = unit_costs * current_price / 100;
-				else unit_costs = unit_costs * current_price;
+				if ( secondAffCur == "JPY" ) {
+					unit_costs = unit_costs * current_price / 100;
+				} else {
+					unit_costs = unit_costs * current_price;
+				}
 			}
 		}
 
-		double result = risk / sl_pips / unit_costs;
+		double units = risk / sl_pips / unit_costs;
 
+		// calculate margin requirements
+		// get price for margin calc
+		double margin_price = current_price;
+		double margin       = ( margin_ratio > 0 ? ( margin_price * units ) / margin_ratio : 0 );
+		if ( first_currency != currency ) {
+			auto it = rates_.find( first_currency );
+			if ( it != rates_.end() ) {
+				margin_price = 1 / it->second;
+				margin       = ( margin_price * units ) / margin_ratio;
+			}
+		}
+		
+		// set unit costs
+		form_->labelPipValue()->setText( QString::number( unit_costs * 100000, 'f', 2 ) + " " + currency );
 		// set label with current price
-		m_label_current_ask_price->setText( QString::number( current_price ) );
+		form_->editInstrumentRate()->setText( QString::number( margin_price ) );
 		// set label with money risk
-		m_label_result_risk->setText( QString::number( risk, 'f', 2 ) + " " + currency );
+		form_->labelResultRisk()->setText( QString::number( risk, 'f', 2 ) + " " + currency );
 		// set label units
-		m_edit_units->setText( QString::number( result, 'f', 0 ) );
+		form_->editUnits()->setText( QString::number( units, 'f', 0 ) );
 		// set label lots
-		m_edit_lots->setText( QString::number( ( result / 100000 ), 'f', 2 ) );
-
+		form_->editLots()->setText( QString::number( ( units / 100000 ), 'f', 2 ) );
+		// set label margin requirements
+		form_->labelMarginRequired()->setText( QString::number( margin, 'f', 2 ) + " " + currency );
+		// update statusbar
 		statusBar()->showMessage(tr("Ready."));
 	}
 
-	void MainWindow::onRiskChange() {
-		calculate();
-	}
-
-	void MainWindow::onSLChange() {
-		calculate();
-	}
-
+	// slot
 	void MainWindow::onAccountCurrencyChange() {
-		if ( m_api == nullptr ) return;
+		if ( api_ == nullptr ) return;
 
 		// set base currency
-		m_api->setBaseCurrency( m_cb_account_currency->currentText() );
+		api_->setBaseCurrency( form_->cbAccountCurrency()->currentText() );
 
 		// fetch exchange rate
 		fetchExchangeRate();
-	}
-
-	void MainWindow::onAccountBalanceChange() {
-		calculate();
-	}
-
-	void MainWindow::onInstrumentChange() {
-		calculate();
 	}
 
 	// save form data to file
@@ -337,14 +349,16 @@ namespace poscalc {
 		}
 
 		QJsonObject json;
-		json["balance"] = m_edit_account_balance->text();
-		json["risk"]    = m_edit_risk_percent->text();
-		json["slpips"]  = m_edit_sl_pips->text();
-		json["currency"] = m_cb_account_currency->currentText();
-		json["instrument"] = m_cb_instrument->currentText();
+		json["balance"]    = form_->editAccountBalance()->text();
+		json["risk"]       = form_->editRiskPercent()->text();
+		json["slpips"]     = form_->editSLPips()->text();
+		json["commission"] = form_->editCommission()->text();
+		json["marginratio"]= form_->editMarginRatio()->text();
+		json["currency"]   = form_->cbAccountCurrency()->currentText();
+		json["instrument"] = form_->cbInstrument()->currentText();
 
 		QJsonArray rates;
-		for( auto& pair : m_rates ) {
+		for( auto& pair : rates_ ) {
 			QJsonObject json_pair;
 			json_pair[ pair.first ] = pair.second;
 
@@ -376,37 +390,43 @@ namespace poscalc {
 
 		QJsonObject json = doc.object();
 		if ( json.contains("balance") ) {
-			m_edit_account_balance->setText( json["balance"].toString() );
+			form_->editAccountBalance()->setText( json["balance"].toString() );
 		}
 		if ( json.contains("risk") ) {
-			m_edit_risk_percent->setText( json["risk"].toString() );
+			form_->editRiskPercent()->setText( json["risk"].toString() );
 		}
 		if ( json.contains("slpips") ) {
-			m_edit_sl_pips->setText( json["slpips"].toString() );
+			form_->editSLPips()->setText( json["slpips"].toString() );
+		}
+		if ( json.contains("commission") ) {
+			form_->editCommission()->setText( json["commission"].toString() );
+		}
+		if ( json.contains("marginratio") ) {
+			form_->editMarginRatio()->setText( json["marginratio"].toString() );
 		}
 		if ( json.contains("currency") ) {
-			m_cb_account_currency->setCurrentText( json["currency"].toString() );
+			form_->cbAccountCurrency()->setCurrentText( json["currency"].toString() );
 		}
 		if( json.contains("instrument") ) {
-			m_cb_instrument->setCurrentText( json["instrument"].toString() );
+			form_->cbInstrument()->setCurrentText( json["instrument"].toString() );
 		}
 		if ( json.contains("rates") ) {
-			m_rates.clear();
+			rates_.clear();
 			auto rates = json["rates"].toArray();
 			for( int i = 0; i < rates.size(); ++i ) {
 				QJsonObject rate = rates[i].toObject();
 				auto key = rate.keys()[0];
 				auto value = rate.value( key );
 
-				auto insert = m_rates.insert( std::pair<QString, double>( key, value.toDouble() ) );
+				auto insert = rates_.insert( std::pair<QString, double>( key, value.toDouble() ) );
 				if ( ! insert.second ) {
 					// update
-					m_rates[ key ] = value.toDouble();
+					rates_[ key ] = value.toDouble();
 				}
 
 				// update current ask price
-				if ( key == m_cb_account_currency->currentText() ) {
-					m_label_current_ask_price->setText( value.toString() );
+				if ( key == form_->cbAccountCurrency()->currentText() ) {
+					form_->editInstrumentRate()->setText( value.toString() );
 				}
 			}
 		}

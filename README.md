@@ -2,8 +2,7 @@
 FX Position Calculator
 
 # ToDo
-- leverage and margin requirements
-- copy units or lots to clipboard
+- double check calculations
 - cleanup
 - app icon
 - macOS release
