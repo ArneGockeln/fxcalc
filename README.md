@@ -3,10 +3,10 @@ FX Position Calculator
 
 # ToDo
 - double check calculations
+- about window
 - cleanup
 - app icon
 - macOS release
-- about window
 
 # dependencies
 - Qt 5.12

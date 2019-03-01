@@ -15,9 +15,10 @@
 #include <QStandardPaths>
 #include <QMessageBox>
 #include <QTextStream>
+#include <QMenuBar>
 
 namespace poscalc {
-	MainWindow::MainWindow(): api_( new Fixer( FIXER_API_URL ) ) {
+	MainWindow::MainWindow(): api_( new Fixer( FIXER_API_URL ) ), use_custom_rate_(false) {
 		setWindowTitle( tr( "FX Calculator" ) );
 
 		auto screenRect = QApplication::desktop()->screenGeometry();
@@ -30,12 +31,15 @@ namespace poscalc {
 		int wnd_y       = ( screenRect.height() / 2 ) - ( wnd_height / 2 );
 		setGeometry( wnd_x, wnd_y, wnd_width, wnd_height );
 
+		// setup menu bar
+		QMenuBar* bar = new QMenuBar;
+		setMenuBar(bar);
+
 		// setup form
 		initForm();
 
+		// macos specific settings
 		setUnifiedTitleAndToolBarOnMac(true);
-
-		statusBar()->showMessage( tr("Ready.") );
 	}
 
 	void MainWindow::initForm() {
@@ -104,8 +108,20 @@ namespace poscalc {
 		connect( form_->editSLPips(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
 		connect( form_->editMarginRatio(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
 		connect( form_->editCommission(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
-		connect( form_->cbInstrument(), &QComboBox::currentTextChanged, this, &MainWindow::calculate );
-		
+		connect( form_->editInstrumentRate(), &QLineEdit::editingFinished, [this](){
+			// calculate with custom exchange rate
+			use_custom_rate_ = true;
+			calculate();
+		});
+		connect( form_->editMarginInstrumentRate(), &QLineEdit::editingFinished, [this]() {
+			// calculate with custom exchange rate
+			use_custom_rate_ = true;
+			calculate();
+		});
+		connect( form_->cbInstrument(), &QComboBox::currentTextChanged, [this]() {
+			use_custom_rate_ = false;
+			calculate();
+		});
 		connect( form_->cbAccountCurrency(), &QComboBox::currentTextChanged, this, &MainWindow::onAccountCurrencyChange );
 		connect( form_->btnRefreshRates(), &QPushButton::clicked, this, &MainWindow::onAccountCurrencyChange );
 
@@ -115,7 +131,7 @@ namespace poscalc {
 			if ( clipboard != nullptr ) {
 				clipboard->setText( form_->editUnits()->text() );
 
-				statusBar()->showMessage( tr("Units copied to clipboard."), 2000);
+				statusBar()->showMessage( tr("Units copied to clipboard."), 3000);
 			}
 		});
 		connect( form_->btnCopyLots(), &QPushButton::clicked, [this]() {
@@ -124,10 +140,9 @@ namespace poscalc {
 			if ( clipboard != nullptr ) {
 				clipboard->setText( form_->editLots()->text() );
 
-				statusBar()->showMessage( tr("Lots copied to clipboard."), 2000);
+				statusBar()->showMessage( tr("Lots copied to clipboard."), 3000);
 			}
 		});
-
 	}
 	
 	/**
@@ -162,7 +177,10 @@ namespace poscalc {
 					}
 				}
 
-				statusBar()->showMessage( tr("Exchange rates updated.") );
+				statusBar()->showMessage( tr("Exchange rates updated."), 5000 );
+
+				// reset use custom rate
+				use_custom_rate_ = false;
 
 				// update
 				calculate();
@@ -184,8 +202,6 @@ namespace poscalc {
 	void MainWindow::calculate() {
 		// save values to json file
 		save();
-
-		statusBar()->showMessage(tr("Calculating..."));
 
 		if ( form_->editRiskPercent()->text().isEmpty() ) return;
 		if ( form_->editAccountBalance()->text().isEmpty() ) return;
@@ -238,54 +254,82 @@ namespace poscalc {
 		//
 		// ----------------------- DEFAULT VALUES
 		// 
-		double current_price = 1;
-		double unit_costs    = 0.0001;
-		QString currency     = form_->cbAccountCurrency()->currentText(); 
-		QString first_currency;
-		QString second_currency;
+		double current_price     = 1;
+		double unit_costs        = 0.0001;
+		QString account_currency = form_->cbAccountCurrency()->currentText();
+		int account_precision    = 5;
+		if ( account_currency == "JPY" ) {
+			account_precision = 3;
+		}
+
+		// base(EUR)/quote(USD) = EUR/USD
+		QString base_currency;
+		QString quote_currency;
 		
 		// calculate risk in account currency
-		double risk          = ( risk_percent * account_size ) / 100;
+		double risk = ( risk_percent * account_size ) / 100;
 
-		// get second currency from pair by using regular expression
+		// get base and quote currency from pair by using regular expression
 		// split currency pair in two parts like: EURUSD => (EUR), (USD)
-		QRegularExpression re(".{3}");
+		QRegularExpression re("(?<base>.{3})(?<quote>.{3})");
 		QRegularExpressionMatch match = re.match( form_->cbInstrument()->currentText() );
 		if ( match.hasMatch() ) {
-			first_currency  = match.captured(0);
-			second_currency = match.captured(1);
+			base_currency  = match.captured("base");
+			quote_currency = match.captured("quote");
 		}
 
 		// find rate for the second currency
-		if ( second_currency != currency ) {
-			auto it = rates_.find( second_currency );
-			if ( it != rates_.end() ) {
-				current_price = it->second;
+		if ( quote_currency != account_currency ) {
+
+			form_->labelInstrumentRate()->setText(tr("Current ask ") + account_currency + quote_currency );
+
+			if ( ! use_custom_rate_ ) {
+				auto it = rates_.find( quote_currency );
+				if ( it != rates_.end() ) {
+					current_price = it->second;
+					// set line edit with current price
+					form_->editInstrumentRate()->setText( QLocale::system().toString( current_price, 'f', account_precision ) );
+				}	
+			} else {
+				ok = false;
+				if ( ! form_->editInstrumentRate()->text().isEmpty() ) {
+					current_price = QLocale::system().toDouble( form_->editInstrumentRate()->text(), &ok );
+					if ( ! ok ) {
+						statusBar()->showMessage(tr("Couldn't convert custom exchange rate to double."), 3000 );
+						return;
+					}
+				}
 			}
 		}
 
-		QString firstAffCur;
-		QString secondAffCur;
-		// get currency priority
-		if ( currency_priority_[currency] > currency_priority_[second_currency] || currency_priority_[second_currency] == 0 ) {
-			firstAffCur = currency;
-			secondAffCur = second_currency;
-		} else {
-			firstAffCur = second_currency;
-			secondAffCur = currency;
-		}
+		QString base_aff_currency;
+		QString quote_aff_currency;
+		QString stype;
+		if ( account_currency != quote_currency ) {
+			if ( currency_priority_[account_currency] > currency_priority_[quote_currency] || currency_priority_[quote_currency] == 0 ) {
+				base_aff_currency = account_currency;
+				quote_aff_currency = quote_currency;
+			} else {
+				base_aff_currency = quote_currency;
+				quote_aff_currency = account_currency;
+			}
 
-		QString stype = ( currency == firstAffCur ? " Ask price" : " Bid price" );
+			if ( account_currency == base_aff_currency ) {
+				stype = "Ask";
+			} else {
+				stype = "Bid";
+			}
+		}		
 		
-		if ( ! secondAffCur.isEmpty() ) {
-			if ( stype == " Ask price" ) {
-				if ( secondAffCur == "JPY" ) {
+		if ( ! quote_aff_currency.isEmpty() ) {
+			if ( stype == "Ask" ) {
+				if ( quote_aff_currency == "JPY" ) {
 					unit_costs = unit_costs / ( current_price / 100 );
 				} else {
 					unit_costs = unit_costs / current_price;
 				}
 			} else {
-				if ( secondAffCur == "JPY" ) {
+				if ( quote_aff_currency == "JPY" ) {
 					unit_costs = unit_costs * current_price / 100;
 				} else {
 					unit_costs = unit_costs * current_price;
@@ -297,30 +341,50 @@ namespace poscalc {
 
 		// calculate margin requirements
 		// get price for margin calc
-		double margin_price = current_price;
-		double margin       = ( margin_ratio > 0 ? ( margin_price * units ) / margin_ratio : 0 );
-		if ( first_currency != currency ) {
-			auto it = rates_.find( first_currency );
-			if ( it != rates_.end() ) {
-				margin_price = 1 / it->second;
-				margin       = ( margin_price * units ) / margin_ratio;
+		double margin_price = 1;
+		double margin       = 0;
+		if ( base_currency != account_currency ) {
+
+			if ( ! use_custom_rate_ ) {
+				auto it = rates_.find( base_currency );
+				if ( it != rates_.end() ) {
+					margin_price = 1 / it->second;
+				}
+			} else {
+				ok = false;
+				if ( ! form_->editMarginInstrumentRate()->text().isEmpty() ) {
+					margin_price = QLocale::system().toDouble( form_->editMarginInstrumentRate()->text(), &ok );
+					if ( ! ok ) {
+						statusBar()->showMessage( tr("Couldn't convert custom margin rate to double."), 3000);
+						return;
+					}
+				}
 			}
 		}
-		
+
+		margin = ( margin_price * units ) / margin_ratio;
+
+		//
+		// --------------- UPDATE UI
+		// 
+
+		// set label margin instrument
+		form_->labelMarginInstrument()->setText( tr("Current ask ") + base_currency + account_currency );		
 		// set unit costs
-		form_->labelPipValue()->setText( QString::number( unit_costs * 100000, 'f', 2 ) + " " + currency );
-		// set label with current price
-		form_->editInstrumentRate()->setText( QString::number( margin_price ) );
+		form_->labelPipValue()->setText( QLocale::system().toString( unit_costs * 100000, 'f', 2 ) + " " + account_currency );
 		// set label with money risk
-		form_->labelResultRisk()->setText( QString::number( risk, 'f', 2 ) + " " + currency );
+		form_->labelResultRisk()->setText( QLocale::system().toString( risk, 'f', 2 ) + " " + account_currency );
 		// set label units
 		form_->editUnits()->setText( QString::number( units, 'f', 0 ) );
 		// set label lots
-		form_->editLots()->setText( QString::number( ( units / 100000 ), 'f', 2 ) );
+		form_->editLots()->setText( QLocale::system().toString( ( units / 100000 ), 'f', 3 ) );
 		// set label margin requirements
-		form_->labelMarginRequired()->setText( QString::number( margin, 'f', 2 ) + " " + currency );
+		form_->labelMarginRequired()->setText( QLocale::system().toString( margin, 'f', 2 ) + " " + account_currency );
+		// set edit for margin instrument rate
+		form_->editMarginInstrumentRate()->setText( QLocale::system().toString( margin_price, 'f', account_precision ) );
+		
 		// update statusbar
-		statusBar()->showMessage(tr("Ready."));
+		statusBar()->clearMessage();
 	}
 
 	// slot

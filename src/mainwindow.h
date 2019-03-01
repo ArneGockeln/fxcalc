@@ -27,8 +27,8 @@ private:
 	void save();
 	void load();
 
-	Form* form_;
-	
+	bool use_custom_rate_;
+	Form* form_;	
 	Fixer* api_;
 	std::map<QString, double> rates_;
 	std::map<QString, int> currency_priority_;

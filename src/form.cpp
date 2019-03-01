@@ -10,22 +10,25 @@
 namespace poscalc {
 	Form::Form(QWidget* parent): QWidget(parent) {
 		// create form fields
-		edit_account_balance_    = new QLineEdit;
-		edit_risk_percent_       = new QLineEdit;
-		edit_sl_pips_            = new QLineEdit;
-		edit_units_              = new QLineEdit;
-		edit_lots_               = new QLineEdit;
-		edit_margin_ratio_       = new QLineEdit;
-		edit_commission_         = new QLineEdit;
-		edit_instrument_rate_    = new QLineEdit;
-		cb_account_currency_     = new QComboBox;
-		cb_instrument_           = new QComboBox;
-		label_result_risk_       = new QLabel;
-		label_pip_value_         = new QLabel;
-		label_margin_required_   = new QLabel;
-		btn_refresh_rates_       = new QPushButton(tr("Refresh Rates"));
-		btn_units_clipboard_     = new QPushButton(tr("Copy"));
-		btn_lots_clipboard_      = new QPushButton(tr("Copy"));
+		edit_account_balance_        = new QLineEdit;
+		edit_risk_percent_           = new QLineEdit;
+		edit_sl_pips_                = new QLineEdit;
+		edit_units_                  = new QLineEdit;
+		edit_lots_                   = new QLineEdit;
+		edit_margin_ratio_           = new QLineEdit;
+		edit_commission_             = new QLineEdit;
+		edit_instrument_rate_        = new QLineEdit;
+		edit_margin_instrument_rate_ = new QLineEdit;
+		cb_account_currency_         = new QComboBox;
+		cb_instrument_               = new QComboBox;
+		label_result_risk_           = new QLabel;
+		label_pip_value_             = new QLabel;
+		label_margin_required_       = new QLabel;
+		label_instrument_rate_       = new QLabel(tr("Current ask"));
+		label_margin_instrument_     = new QLabel;
+		btn_refresh_rates_           = new QPushButton(tr("Refresh Rates"));
+		btn_units_clipboard_         = new QPushButton(tr("Copy"));
+		btn_lots_clipboard_          = new QPushButton(tr("Copy"));
 
 		// set alignment
 		edit_account_balance_->setAlignment(Qt::AlignRight);
@@ -36,12 +39,17 @@ namespace poscalc {
 		edit_margin_ratio_->setAlignment(Qt::AlignRight);
 		edit_commission_->setAlignment(Qt::AlignRight);	
 		edit_instrument_rate_->setAlignment(Qt::AlignRight);
+		edit_margin_instrument_rate_->setAlignment(Qt::AlignRight);
+
+		label_result_risk_->setAlignment(Qt::AlignRight);
+		label_pip_value_->setAlignment(Qt::AlignRight);
+		label_margin_required_->setAlignment(Qt::AlignRight);
 
 		// set validators and field policies
 		cb_account_currency_->setInsertPolicy( QComboBox::NoInsert );
 		cb_instrument_->setInsertPolicy( QComboBox::NoInsert );
 
-		auto balance_validator = new QDoubleValidator(0, 999999999, 2, edit_account_balance_ );
+		auto balance_validator    = new QDoubleValidator(0, 999999999, 2, edit_account_balance_ );
 		balance_validator->setNotation( QDoubleValidator::StandardNotation );
 		balance_validator->setLocale(QLocale::c());
 
@@ -49,30 +57,29 @@ namespace poscalc {
 		commission_validator->setNotation( QDoubleValidator::StandardNotation );
 		commission_validator->setLocale(QLocale::c());
 
-		auto risk_validator = new QDoubleValidator(0, 100, 2, edit_risk_percent_ );
+		auto risk_validator       = new QDoubleValidator(0, 100, 2, edit_risk_percent_ );
 		risk_validator->setNotation( QDoubleValidator::StandardNotation );
 		risk_validator->setLocale(QLocale::c());
 
-		auto rate_validator = new QDoubleValidator(0, 99999999, 5, edit_instrument_rate_ );
+		auto rate_validator       = new QDoubleValidator(0, 99999999, 5, edit_instrument_rate_ );
 		rate_validator->setNotation( QDoubleValidator::StandardNotation );
 		rate_validator->setLocale(QLocale::c());
 
-		auto pip_validator = new QIntValidator(0, 9999, edit_sl_pips_ );
+		auto pip_validator        = new QIntValidator(0, 9999, edit_sl_pips_ );
 
 		// create form labels
-		QLabel* label_account_balance  = new QLabel(tr("Account Balance"));
-		QLabel* label_account_currency = new QLabel(tr("Account Denomination"));
-		QLabel* label_risk_percent     = new QLabel(tr("Risk, %"));
-		QLabel* label_sl_pips          = new QLabel(tr("Stoploss, pips"));
-		QLabel* label_instrument       = new QLabel(tr("Instrument"));
-		QLabel* label_units            = new QLabel(tr("Units"));
-		QLabel* label_lots             = new QLabel(tr("Lots"));
-		QLabel* label_result_risk      = new QLabel(tr("Risk"));
-		QLabel* label_current_ask      = new QLabel(tr("Current ask price"));
-		QLabel* label_margin_required  = new QLabel(tr("Margin Required"));
-		QLabel* label_margin_ratio     = new QLabel(tr("Margin Ratio n:1"));
-		QLabel* label_pip_value        = new QLabel(tr("Pip Value"));
-		QLabel* label_commission       = new QLabel(tr("Commission per Lot"));
+		QLabel* label_account_balance   = new QLabel(tr("Account Balance"));
+		QLabel* label_account_currency  = new QLabel(tr("Account Denomination"));
+		QLabel* label_risk_percent      = new QLabel(tr("Risk, %"));
+		QLabel* label_sl_pips           = new QLabel(tr("Stoploss, pips"));
+		QLabel* label_instrument        = new QLabel(tr("Instrument"));
+		QLabel* label_units             = new QLabel(tr("Units"));
+		QLabel* label_lots              = new QLabel(tr("Lots"));
+		QLabel* label_result_risk       = new QLabel(tr("Risk"));
+		QLabel* label_margin_required   = new QLabel(tr("Margin Required"));
+		QLabel* label_margin_ratio      = new QLabel(tr("Margin Ratio n:1"));
+		QLabel* label_pip_value         = new QLabel(tr("Pip Value"));
+		QLabel* label_commission        = new QLabel(tr("Commission per Lot"));
 
 		// create groups
 		QGroupBox* group_inputs   = new QGroupBox;
@@ -93,10 +100,10 @@ namespace poscalc {
 		QHBoxLayout* layout_refresh_rates = new QHBoxLayout;
 
 		// combine clipboard button with line edits
-		layout_copy_units->addWidget(edit_units_);
 		layout_copy_units->addWidget(btn_units_clipboard_);
-		layout_copy_lots->addWidget(edit_lots_);
+		layout_copy_units->addWidget(edit_units_);
 		layout_copy_lots->addWidget(btn_lots_clipboard_);
+		layout_copy_lots->addWidget(edit_lots_);
 
 		// combine refresh button with instrument
 		layout_refresh_rates->addWidget(cb_instrument_);
@@ -121,7 +128,7 @@ namespace poscalc {
 		layout_inputs->addWidget(edit_commission_, 4, 1);
 		layout_inputs->addWidget(label_instrument, 5, 0);
 		layout_inputs->addLayout(layout_refresh_rates, 5, 1);
-		layout_inputs->addWidget(label_current_ask, 6, 0);
+		layout_inputs->addWidget(label_instrument_rate_, 6, 0);
 		layout_inputs->addWidget(edit_instrument_rate_, 6, 1);
 		// - pos_size
 		layout_pos_size->addWidget(label_pip_value, 0, 0);
@@ -135,8 +142,10 @@ namespace poscalc {
 		// - margins
 		layout_margin->addWidget(label_margin_ratio, 0, 0);
 		layout_margin->addWidget(edit_margin_ratio_, 0, 1);
-		layout_margin->addWidget(label_margin_required, 1, 0);
-		layout_margin->addWidget(label_margin_required_, 1, 1);
+		layout_margin->addWidget(label_margin_instrument_, 1, 0);
+		layout_margin->addWidget(edit_margin_instrument_rate_, 1, 1);
+		layout_margin->addWidget(label_margin_required, 2, 0);
+		layout_margin->addWidget(label_margin_required_, 2, 1);
 
 		// create main layout
 		QVBoxLayout* layout_main = new QVBoxLayout;
@@ -179,6 +188,10 @@ namespace poscalc {
 		return edit_instrument_rate_;
 	}
 
+	QLineEdit* Form::editMarginInstrumentRate() {
+		return edit_margin_instrument_rate_;
+	}
+
 	QComboBox* Form::cbInstrument() {
 		return cb_instrument_;
 	}
@@ -197,6 +210,14 @@ namespace poscalc {
 
 	QLabel* Form::labelMarginRequired() {
 		return label_margin_required_;
+	}
+
+	QLabel* Form::labelInstrumentRate() {
+		return label_instrument_rate_;
+	}
+
+	QLabel* Form::labelMarginInstrument() {
+		return label_margin_instrument_;
 	}
 
 	QPushButton* Form::btnRefreshRates() {
