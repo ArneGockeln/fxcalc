@@ -6,7 +6,7 @@ FX Position Calculator
 - about window
 - cleanup
 - app icon
-- macOS release
+- macOS deployment
 
 # dependencies
 - Qt 5.12
