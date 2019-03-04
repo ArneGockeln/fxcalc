@@ -1,27 +1,60 @@
 cmake_minimum_required(VERSION 3.8)
-project(poscalc)
+project(fxcalc)
 
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_INCLUDE_CURRENT_DIR ON)
-
-# Qt
 # Set this to your Qt installation
 set(CMAKE_PREFIX_PATH ~/sourcecode/sdk/QtLatest/5.12.0/clang_64)
-set(RESOURCE_FOLDER res)
-set(RESOURCE_FILES ${RESOURCE_FOLDER}/resources.qrc)
-set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTOUIC ON)
-set(CMAKE_AUTORCC ON)
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+set(PROJECT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+set(ICON_NAME AppIcon)
+
+set(RESOURCE_FILES 
+	res/${PROJECT_NAME}.qrc
+	res/${ICON_NAME}.icns
+	res/${ICON_NAME}.png
+	res/instruments.txt
+)
+
+# Qt
+set(CMAKE_AUTOMOC ON) # For meta object compiler
+set(CMAKE_AUTORCC ON) # Resource files
+set(CMAKE_AUTOUIC ON) # UI files
 
 find_package(Qt5Core REQUIRED)
 find_package(Qt5Widgets REQUIRED)
 find_package(Qt5Network REQUIRED)
 
-set(PROJECT_SOURCE_DIR src/)
+set(OS_BUNDLE "")
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+# Identify MacOS bundle
+set(OS_BUNDLE "MACOSX_BUNDLE")
+set(COMPANY "Arne Gockeln")
+set(COPYRIGHT "Copyright (c) 2019 Arne Gockeln. All rights reserved.")
+set(IDENTIFIER "com.arnegockeln.fxcalc")
+set(PROJECT_VERSION 1.0)
+set(MACOSX_BUNDLE_BUNDLE_NAME FXCalc)
+set(MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION})
+set(MACOSX_BUNDLE_LONG_VERSION_STRING ${PROJECT_VERSION})
+set(MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION})
+set(MACOSX_BUNDLE_COPYRIGHT ${COPYRIGHT})
+set(MACOSX_BUNDLE_GUI_IDENTIFIER ${IDENTIFIER})
+set(MACOSX_BUNDLE_ICON_FILE ${ICON_NAME})
+endif()
+
 include_directories(${PROJECT_SOURCE_DIR})
 
+# source files
 file(GLOB SOURCE_FILES ${PROJECT_SOURCE_DIR}/*.cpp)
 
-add_executable(${PROJECT_NAME} ${SOURCE_FILES} ${RESOURCE_FILES})
-target_link_libraries(${PROJECT_NAME} Qt5::Core Qt5::Widgets Qt5::Network)
+# executable
+add_executable(${PROJECT_NAME} ${OS_BUNDLE} ${SOURCE_FILES} ${RESOURCE_FILES})
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+set_target_properties(${PROJECT_NAME} PROPERTIES 
+	MACOSX_BUNDLE TRUE 
+	RESOURCE "${RESOURCE_FILES}"
+	OUTPUT_NAME "${MACOSX_BUNDLE_BUNDLE_NAME}"
+)
 
+endif()
+target_link_libraries(${PROJECT_NAME} Qt5::Core Qt5::Widgets Qt5::Network)

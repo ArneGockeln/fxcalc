@@ -1,3 +1,17 @@
+// License
+// FXCalc is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FXCalc is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+// for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with FXCalc. If not, see <http://www.gnu.org/licenses/>.
+
 #include "form.h"
 
 #include <QGridLayout>
@@ -7,7 +21,7 @@
 #include <QDoubleValidator>
 #include <QIntValidator>
 
-namespace poscalc {
+namespace fxcalc {
 	Form::Form(QWidget* parent): QWidget(parent) {
 		// create form fields
 		edit_account_balance_        = new QLineEdit;
@@ -44,6 +58,9 @@ namespace poscalc {
 		label_result_risk_->setAlignment(Qt::AlignRight);
 		label_pip_value_->setAlignment(Qt::AlignRight);
 		label_margin_required_->setAlignment(Qt::AlignRight);
+
+		edit_units_->setReadOnly(true);
+		edit_lots_->setReadOnly(true);
 
 		// set validators and field policies
 		cb_account_currency_->setInsertPolicy( QComboBox::NoInsert );

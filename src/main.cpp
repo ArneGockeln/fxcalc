@@ -1,5 +1,19 @@
-#include <iostream>
+// License
+// FXCalc is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FXCalc is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+// for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with FXCalc. If not, see <http://www.gnu.org/licenses/>.
 
+#include <iostream>
+ 
 #include <QtCore>
 #include <QApplication>
 #include <QStyleFactory>
@@ -9,9 +23,9 @@
 int main(int argc, char *argv[])
 {	
 	// init
-	Q_INIT_RESOURCE( resources );
+	Q_INIT_RESOURCE( fxcalc );
 	QApplication app(argc, argv);
-
+ 
 	// GIST https://gist.github.com/QuantumCD/6245215
 	qApp->setStyle(QStyleFactory::create("Fusion"));
     QPalette darkPalette;
@@ -31,8 +45,13 @@ int main(int argc, char *argv[])
     qApp->setPalette(darkPalette);
     qApp->setStyleSheet("QToolTip { color: #ffffff; background-color: #2a82da; border: 1px solid white; }");
 
+    // set app icon
+    QIcon appIcon;
+    appIcon.addFile(":/AppIcon");
+    app.setWindowIcon(appIcon);
+
 	// load main window
-	poscalc::MainWindow wnd;
+	fxcalc::MainWindow wnd;
 	wnd.show();
 
 	return app.exec();

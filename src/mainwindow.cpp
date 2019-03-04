@@ -1,3 +1,17 @@
+// License
+// FXCalc is free software: you can redistribute it and/or modify it
+// under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// FXCalc is distributed in the hope that it will be useful, but WITHOUT
+// ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+// FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+// for more details.
+// 
+// You should have received a copy of the GNU General Public License
+// along with FXCalc. If not, see <http://www.gnu.org/licenses/>.
+
 #include "mainwindow.h"
 
 #include <QDebug>
@@ -17,7 +31,7 @@
 #include <QTextStream>
 #include <QMenuBar>
 
-namespace poscalc {
+namespace fxcalc {
 	MainWindow::MainWindow(): api_( new Fixer( FIXER_API_URL ) ), use_custom_rate_(false) {
 		setWindowTitle( tr( "FX Calculator" ) );
 
@@ -34,6 +48,15 @@ namespace poscalc {
 		// setup menu bar
 		QMenuBar* bar = new QMenuBar;
 		setMenuBar(bar);
+
+		// set about dialog
+		QAction* action_about = new QAction(tr("&About"), this);
+		connect(action_about, &QAction::triggered, this, [this](){
+			QMessageBox::about(this, tr("About FXCalc"), tr("This app is written by Arne Gockeln.\nMore about me https://arnegockeln.com.\nHappy trading."));
+		});
+
+		QMenu* file = menuBar()->addMenu(tr("&File"));
+		file->addAction(action_about);
 
 		// setup form
 		initForm();
