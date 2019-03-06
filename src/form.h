@@ -29,7 +29,9 @@ namespace fxcalc {
 
 		QLineEdit* editAccountBalance();
 		QLineEdit* editRiskPercent();
+		QLineEdit* editContractSize();
 		QLineEdit* editSLPips();
+		QLineEdit* editTPPips();
 		QLineEdit* editMarginRatio();
 		QLineEdit* editUnits();
 		QLineEdit* editLots();
@@ -39,10 +41,12 @@ namespace fxcalc {
 		QComboBox* cbInstrument();
 		QComboBox* cbAccountCurrency();
 		QLabel* labelResultRisk();
+		QLabel* labelResultProfit();
 		QLabel* labelMarginRequired();
 		QLabel* labelMarginInstrument();
 		QLabel* labelPipValue();
 		QLabel* labelInstrumentRate();
+		QLabel* labelCommission();
 		QPushButton* btnRefreshRates();
 		QPushButton* btnCopyUnits();
 		QPushButton* btnCopyLots();
@@ -50,7 +54,9 @@ namespace fxcalc {
 	private:
 		QLineEdit* edit_account_balance_;
 		QLineEdit* edit_risk_percent_;
+		QLineEdit* edit_contract_size_;
 		QLineEdit* edit_sl_pips_;
+		QLineEdit* edit_tp_pips_;
 		QLineEdit* edit_margin_ratio_;
 		QLineEdit* edit_units_;
 		QLineEdit* edit_lots_;
@@ -60,10 +66,12 @@ namespace fxcalc {
 		QComboBox* cb_account_currency_;
 		QComboBox* cb_instrument_;
 		QLabel* label_result_risk_;
+		QLabel* label_result_profit_;
 		QLabel* label_margin_required_;
 		QLabel* label_pip_value_;
 		QLabel* label_instrument_rate_;
 		QLabel* label_margin_instrument_;
+		QLabel* label_commission_;
 		QPushButton* btn_refresh_rates_;
 		QPushButton* btn_units_clipboard_;
 		QPushButton* btn_lots_clipboard_;

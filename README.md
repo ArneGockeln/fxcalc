@@ -17,6 +17,8 @@ The App `FXCalc.app` is going to be generated. You can copy it to your Applicati
 
 # ToDo
 - take profit calculation
+- commissions
+- contract size related calculations
 
 # dependencies
 - Qt 5.12

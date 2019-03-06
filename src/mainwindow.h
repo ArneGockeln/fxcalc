@@ -29,6 +29,12 @@ class MainWindow: public QMainWindow {
 	Q_OBJECT
 
 public:
+	enum CalcMode {
+		NORMAL = 0,
+		TP_RATE,
+		TP_PIPS
+	};
+
 	MainWindow();
 
 public slots:
@@ -41,8 +47,9 @@ private:
 	void save();
 	void load();
 
+	CalcMode calc_mode_;
 	bool use_custom_rate_;
-	Form* form_;	
+	Form* form_;
 	Fixer* api_;
 	std::map<QString, double> rates_;
 	std::map<QString, int> currency_priority_;

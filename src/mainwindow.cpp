@@ -31,8 +31,10 @@
 #include <QTextStream>
 #include <QMenuBar>
 
+#include <cmath>
+
 namespace fxcalc {
-	MainWindow::MainWindow(): api_( new Fixer( FIXER_API_URL ) ), use_custom_rate_(false) {
+	MainWindow::MainWindow(): api_( new Fixer( FIXER_API_URL ) ), use_custom_rate_(false), calc_mode_(CalcMode::NORMAL) {
 		setWindowTitle( tr( "FX Calculator" ) );
 
 		auto screenRect = QApplication::desktop()->screenGeometry();
@@ -128,7 +130,12 @@ namespace fxcalc {
 		// connections
 		connect( form_->editAccountBalance(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
 		connect( form_->editRiskPercent(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
+		connect( form_->editContractSize(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
 		connect( form_->editSLPips(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
+		connect( form_->editTPPips(), &QLineEdit::editingFinished, [this]() {
+			calc_mode_ = CalcMode::TP_PIPS;
+			calculate();
+		});
 		connect( form_->editMarginRatio(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
 		connect( form_->editCommission(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
 		connect( form_->editInstrumentRate(), &QLineEdit::editingFinished, [this](){
@@ -271,19 +278,42 @@ namespace fxcalc {
 			margin_ratio = QLocale::system().toInt( form_->editMarginRatio()->text(), &ok );
 			if ( ! ok ) {
 				statusBar()->showMessage(tr("Couldn't convert margin ratio to int."), 3000);
+				margin_ratio = 0;
+			}
+		}
+
+		int tp_pips = 0;
+		if ( ! form_->editTPPips()->text().isEmpty() ) {
+			ok = false;
+			tp_pips = QLocale::system().toInt( form_->editTPPips()->text(), &ok );
+			if ( ! ok ) {
+				statusBar()->showMessage(tr("Couldn't convert take profit pips to int."), 3000);
+			}
+		}
+
+		int contract_size = 100000;
+		if ( ! form_->editContractSize()->text().isEmpty() ) {
+			ok = false;
+			contract_size = QLocale::system().toInt( form_->editContractSize()->text(), &ok );
+			if ( ! ok ) {
+				statusBar()->showMessage(tr("Couldn't convert contract size to int."), 3000 );
+				return;
 			}
 		}
 		
 		//
 		// ----------------------- DEFAULT VALUES
 		// 
+		double tp_rate           = 0;
 		double current_price     = 1;
+		double point_size        = 0.0001;
 		double unit_costs        = 0.0001;
 		QString account_currency = form_->cbAccountCurrency()->currentText();
 		int account_precision    = 5;
 		if ( account_currency == "JPY" ) {
 			account_precision = 3;
 		}
+		int instrument_precision = 5;
 
 		// base(EUR)/quote(USD) = EUR/USD
 		QString base_currency;
@@ -301,6 +331,11 @@ namespace fxcalc {
 			quote_currency = match.captured("quote");
 		}
 
+		if ( quote_currency == "JPY" ) {
+			instrument_precision = 3;
+			point_size           = 0.001;
+		}
+
 		// find rate for the second currency
 		if ( quote_currency != account_currency ) {
 
@@ -310,8 +345,9 @@ namespace fxcalc {
 				auto it = rates_.find( quote_currency );
 				if ( it != rates_.end() ) {
 					current_price = it->second;
+
 					// set line edit with current price
-					form_->editInstrumentRate()->setText( QLocale::system().toString( current_price, 'f', account_precision ) );
+					form_->editInstrumentRate()->setText( QLocale::system().toString( current_price, 'f', instrument_precision ) );
 				}	
 			} else {
 				ok = false;
@@ -367,7 +403,6 @@ namespace fxcalc {
 		double margin_price = 1;
 		double margin       = 0;
 		if ( base_currency != account_currency ) {
-
 			if ( ! use_custom_rate_ ) {
 				auto it = rates_.find( base_currency );
 				if ( it != rates_.end() ) {
@@ -387,6 +422,26 @@ namespace fxcalc {
 
 		margin = ( margin_price * units ) / margin_ratio;
 
+		// calculate lots
+		double lots = ( units / contract_size );
+
+		// calculate profit
+		// Rate of Exit * Profit in Points * Lot Size of Exit * Point Value of Exit
+		double profit = 0;
+
+		if ( calc_mode_ == CalcMode::TP_PIPS ) {
+			tp_rate = current_price + ( point_size * tp_pips );	
+		} else if ( calc_mode_ == CalcMode::TP_RATE ) {
+			tp_pips = std::abs( current_price - tp_rate ) * ( 1 / point_size );
+		}
+
+		profit = tp_pips * ( unit_costs * contract_size );
+
+		// calculate commissions for entry and exit
+		if ( commissions > 0 ) {
+			commissions = commissions * ( ( contract_size * current_price ) / 100000 ) * 2;
+		}
+
 		//
 		// --------------- UPDATE UI
 		// 
@@ -394,20 +449,29 @@ namespace fxcalc {
 		// set label margin instrument
 		form_->labelMarginInstrument()->setText( tr("Current ask ") + base_currency + account_currency );		
 		// set unit costs
-		form_->labelPipValue()->setText( QLocale::system().toString( unit_costs * 100000, 'f', 2 ) + " " + account_currency );
+		form_->labelPipValue()->setText( QLocale::system().toString( unit_costs * contract_size, 'f', 2 ) + " " + account_currency );
 		// set label with money risk
 		form_->labelResultRisk()->setText( QLocale::system().toString( risk, 'f', 2 ) + " " + account_currency );
+		// set label with money profit
+		form_->labelResultProfit()->setText( QLocale::system().toString( profit, 'f', 2 ) + " " + account_currency );
+		// set label margin requirements
+		form_->labelMarginRequired()->setText( QLocale::system().toString( margin, 'f', 2 ) + " " + account_currency );
+		// set label for commissions
+		form_->labelCommission()->setText( QLocale::system().toString( commissions, 'f', 2 ) + " " + account_currency );
+
+		// set tp pips
+		form_->editTPPips()->setText( QString::number( tp_pips ) );
 		// set label units
 		form_->editUnits()->setText( QString::number( units, 'f', 0 ) );
 		// set label lots
-		form_->editLots()->setText( QLocale::system().toString( ( units / 100000 ), 'f', 3 ) );
-		// set label margin requirements
-		form_->labelMarginRequired()->setText( QLocale::system().toString( margin, 'f', 2 ) + " " + account_currency );
+		form_->editLots()->setText( QLocale::system().toString( lots, 'f', 3 ) );
 		// set edit for margin instrument rate
 		form_->editMarginInstrumentRate()->setText( QLocale::system().toString( margin_price, 'f', account_precision ) );
 		
 		// update statusbar
 		statusBar()->clearMessage();
+		// rest calc mode
+		calc_mode_ = CalcMode::NORMAL;
 	}
 
 	// slot
@@ -436,13 +500,15 @@ namespace fxcalc {
 		}
 
 		QJsonObject json;
-		json["balance"]    = form_->editAccountBalance()->text();
-		json["risk"]       = form_->editRiskPercent()->text();
-		json["slpips"]     = form_->editSLPips()->text();
-		json["commission"] = form_->editCommission()->text();
-		json["marginratio"]= form_->editMarginRatio()->text();
-		json["currency"]   = form_->cbAccountCurrency()->currentText();
-		json["instrument"] = form_->cbInstrument()->currentText();
+		json["balance"]      = form_->editAccountBalance()->text();
+		json["risk"]         = form_->editRiskPercent()->text();
+		json["contractsize"] = form_->editContractSize()->text();
+		json["slpips"]       = form_->editSLPips()->text();
+		json["tppips"]       = form_->editTPPips()->text();
+		json["commission"]   = form_->editCommission()->text();
+		json["marginratio"]  = form_->editMarginRatio()->text();
+		json["currency"]     = form_->cbAccountCurrency()->currentText();
+		json["instrument"]   = form_->cbInstrument()->currentText();
 
 		QJsonArray rates;
 		for( auto& pair : rates_ ) {
@@ -472,6 +538,9 @@ namespace fxcalc {
 			return;
 		}
 
+		// defaults
+		form_->editContractSize()->setText( QStringLiteral("100000") );
+
 		auto data = loadFile.readAll();
 		QJsonDocument doc( QJsonDocument::fromJson( data ) );
 
@@ -482,8 +551,14 @@ namespace fxcalc {
 		if ( json.contains("risk") ) {
 			form_->editRiskPercent()->setText( json["risk"].toString() );
 		}
+		if ( json.contains("contractsize") ) {
+			form_->editContractSize()->setText( json["contractsize"].toString() );
+		}
 		if ( json.contains("slpips") ) {
 			form_->editSLPips()->setText( json["slpips"].toString() );
+		}
+		if ( json.contains("tppips") ) {
+			form_->editTPPips()->setText( json["tppips"].toString() );
 		}
 		if ( json.contains("commission") ) {
 			form_->editCommission()->setText( json["commission"].toString() );
