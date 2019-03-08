@@ -15,11 +15,6 @@ $ make
 
 The App `FXCalc.app` is going to be generated. You can copy it to your Applications folder.
 
-# ToDo
-- take profit calculation
-- commissions
-- contract size related calculations
-
 # dependencies
 - Qt 5.12
 - CMAKE 3.8
