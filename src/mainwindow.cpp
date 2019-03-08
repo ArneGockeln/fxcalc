@@ -130,12 +130,12 @@ namespace fxcalc {
 		// connections
 		connect( form_->editAccountBalance(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
 		connect( form_->editRiskPercent(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
-		connect( form_->editContractSize(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
+		// connect( form_->editContractSize(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
 		connect( form_->editSLPips(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
-		connect( form_->editTPPips(), &QLineEdit::editingFinished, [this]() {
-			calc_mode_ = CalcMode::TP_PIPS;
-			calculate();
-		});
+		// connect( form_->editTPPips(), &QLineEdit::editingFinished, [this]() {
+		// 	calc_mode_ = CalcMode::TP_PIPS;
+		// 	calculate();
+		// });
 		connect( form_->editMarginRatio(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
 		connect( form_->editCommission(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
 		connect( form_->editInstrumentRate(), &QLineEdit::editingFinished, [this](){
@@ -282,29 +282,30 @@ namespace fxcalc {
 			}
 		}
 
-		int tp_pips = 0;
-		if ( ! form_->editTPPips()->text().isEmpty() ) {
-			ok = false;
-			tp_pips = QLocale::system().toInt( form_->editTPPips()->text(), &ok );
-			if ( ! ok ) {
-				statusBar()->showMessage(tr("Couldn't convert take profit pips to int."), 3000);
-			}
-		}
+		// int tp_pips = 0;
+		// if ( ! form_->editTPPips()->text().isEmpty() ) {
+		// 	ok = false;
+		// 	tp_pips = QLocale::system().toInt( form_->editTPPips()->text(), &ok );
+		// 	if ( ! ok ) {
+		// 		statusBar()->showMessage(tr("Couldn't convert take profit pips to int."), 3000);
+		// 	}
+		// }
 
-		int contract_size = 100000;
-		if ( ! form_->editContractSize()->text().isEmpty() ) {
-			ok = false;
-			contract_size = QLocale::system().toInt( form_->editContractSize()->text(), &ok );
-			if ( ! ok ) {
-				statusBar()->showMessage(tr("Couldn't convert contract size to int."), 3000 );
-				return;
-			}
-		}
+		// int contract_size = 100000;
+		// if ( ! form_->editContractSize()->text().isEmpty() ) {
+		// 	ok = false;
+		// 	contract_size = QLocale::system().toInt( form_->editContractSize()->text(), &ok );
+		// 	if ( ! ok ) {
+		// 		statusBar()->showMessage(tr("Couldn't convert contract size to int."), 3000 );
+		// 		return;
+		// 	}
+		// }
 		
 		//
 		// ----------------------- DEFAULT VALUES
 		// 
-		double tp_rate           = 0;
+		//double tp_rate           = 0;
+		double contract_size     = 100000;
 		double current_price     = 1;
 		double point_size        = 0.0001;
 		double unit_costs        = 0.0001;
@@ -427,7 +428,7 @@ namespace fxcalc {
 
 		// calculate profit
 		// Rate of Exit * Profit in Points * Lot Size of Exit * Point Value of Exit
-		double profit = 0;
+		/*double profit = 0;
 
 		if ( calc_mode_ == CalcMode::TP_PIPS ) {
 			tp_rate = current_price + ( point_size * tp_pips );	
@@ -435,11 +436,11 @@ namespace fxcalc {
 			tp_pips = std::abs( current_price - tp_rate ) * ( 1 / point_size );
 		}
 
-		profit = tp_pips * ( unit_costs * contract_size );
+		profit = ( tp_pips * point_size ) * current_price * units;*/
 
 		// calculate commissions for entry and exit
 		if ( commissions > 0 ) {
-			commissions = commissions * ( ( contract_size * current_price ) / 100000 ) * 2;
+			commissions = ( ( lots * 100 ) * commissions ) * 2;
 		}
 
 		//
@@ -453,14 +454,14 @@ namespace fxcalc {
 		// set label with money risk
 		form_->labelResultRisk()->setText( QLocale::system().toString( risk, 'f', 2 ) + " " + account_currency );
 		// set label with money profit
-		form_->labelResultProfit()->setText( QLocale::system().toString( profit, 'f', 2 ) + " " + account_currency );
+		//form_->labelResultProfit()->setText( QLocale::system().toString( profit, 'f', 2 ) + " " + account_currency );
 		// set label margin requirements
 		form_->labelMarginRequired()->setText( QLocale::system().toString( margin, 'f', 2 ) + " " + account_currency );
 		// set label for commissions
 		form_->labelCommission()->setText( QLocale::system().toString( commissions, 'f', 2 ) + " " + account_currency );
 
 		// set tp pips
-		form_->editTPPips()->setText( QString::number( tp_pips ) );
+		//form_->editTPPips()->setText( QString::number( tp_pips ) );
 		// set label units
 		form_->editUnits()->setText( QString::number( units, 'f', 0 ) );
 		// set label lots
@@ -489,7 +490,7 @@ namespace fxcalc {
 	void MainWindow::save() {
 		QString configLocation = QStandardPaths::writableLocation( QStandardPaths::AppConfigLocation );
 		if ( configLocation.isEmpty() ) {
-			configLocation.append( "poscalc" );
+			configLocation.append("fxcalc");
 		}
 		
 		QFile saveFile( configLocation );
@@ -502,9 +503,9 @@ namespace fxcalc {
 		QJsonObject json;
 		json["balance"]      = form_->editAccountBalance()->text();
 		json["risk"]         = form_->editRiskPercent()->text();
-		json["contractsize"] = form_->editContractSize()->text();
+		//json["contractsize"] = form_->editContractSize()->text();
 		json["slpips"]       = form_->editSLPips()->text();
-		json["tppips"]       = form_->editTPPips()->text();
+		//json["tppips"]       = form_->editTPPips()->text();
 		json["commission"]   = form_->editCommission()->text();
 		json["marginratio"]  = form_->editMarginRatio()->text();
 		json["currency"]     = form_->cbAccountCurrency()->currentText();
@@ -529,7 +530,7 @@ namespace fxcalc {
 	void MainWindow::load() {
 		QString configLocation = QStandardPaths::writableLocation( QStandardPaths::AppConfigLocation );
 		if ( configLocation.isEmpty() ) {
-			configLocation.append( "poscalc" );
+			configLocation.append("fxcalc");
 		}
 
 		QFile loadFile( configLocation );
@@ -539,7 +540,7 @@ namespace fxcalc {
 		}
 
 		// defaults
-		form_->editContractSize()->setText( QStringLiteral("100000") );
+		// form_->editContractSize()->setText( QStringLiteral("100000") );
 
 		auto data = loadFile.readAll();
 		QJsonDocument doc( QJsonDocument::fromJson( data ) );
@@ -551,15 +552,15 @@ namespace fxcalc {
 		if ( json.contains("risk") ) {
 			form_->editRiskPercent()->setText( json["risk"].toString() );
 		}
-		if ( json.contains("contractsize") ) {
-			form_->editContractSize()->setText( json["contractsize"].toString() );
-		}
+		// if ( json.contains("contractsize") ) {
+		// 	form_->editContractSize()->setText( json["contractsize"].toString() );
+		// }
 		if ( json.contains("slpips") ) {
 			form_->editSLPips()->setText( json["slpips"].toString() );
 		}
-		if ( json.contains("tppips") ) {
-			form_->editTPPips()->setText( json["tppips"].toString() );
-		}
+		// if ( json.contains("tppips") ) {
+		// 	form_->editTPPips()->setText( json["tppips"].toString() );
+		// }
 		if ( json.contains("commission") ) {
 			form_->editCommission()->setText( json["commission"].toString() );
 		}
