@@ -2,6 +2,7 @@
 <RCC version="1.0">
     <qresource prefix="/">
     	<file>instruments.txt</file>
+    	<file>license.txt</file>
     	<file alias="AppIcon">AppIcon.png</file>
     </qresource>
 </RCC>

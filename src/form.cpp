@@ -26,9 +26,7 @@ namespace fxcalc {
 		// create form fields
 		edit_account_balance_        = new QLineEdit;
 		edit_risk_percent_           = new QLineEdit;
-		// edit_contract_size_          = new QLineEdit;
 		edit_sl_pips_                = new QLineEdit;
-		// edit_tp_pips_                = new QLineEdit;
 		edit_units_                  = new QLineEdit;
 		edit_lots_                   = new QLineEdit;
 		edit_margin_ratio_           = new QLineEdit;
@@ -38,22 +36,18 @@ namespace fxcalc {
 		cb_account_currency_         = new QComboBox;
 		cb_instrument_               = new QComboBox;
 		label_result_risk_           = new QLabel;
-		// label_result_profit_         = new QLabel;
 		label_pip_value_             = new QLabel;
 		label_margin_required_       = new QLabel;
 		label_instrument_rate_       = new QLabel(tr("Current ask"));
 		label_margin_instrument_     = new QLabel;
 		label_commission_            = new QLabel;		
-		btn_refresh_rates_           = new QPushButton(tr("Refresh Rates"));
 		btn_units_clipboard_         = new QPushButton(tr("Copy"));
 		btn_lots_clipboard_          = new QPushButton(tr("Copy"));
 
 		// set alignment
 		edit_account_balance_->setAlignment(Qt::AlignRight);
 		edit_risk_percent_->setAlignment(Qt::AlignRight);
-		// edit_contract_size_->setAlignment(Qt::AlignRight);
 		edit_sl_pips_->setAlignment(Qt::AlignRight);
-		// edit_tp_pips_->setAlignment(Qt::AlignRight);
 		edit_units_->setAlignment(Qt::AlignRight);
 		edit_lots_->setAlignment(Qt::AlignRight);
 		edit_margin_ratio_->setAlignment(Qt::AlignRight);
@@ -62,7 +56,6 @@ namespace fxcalc {
 		edit_margin_instrument_rate_->setAlignment(Qt::AlignRight);
 
 		label_result_risk_->setAlignment(Qt::AlignRight);
-		// label_result_profit_->setAlignment(Qt::AlignRight);
 		label_pip_value_->setAlignment(Qt::AlignRight);
 		label_margin_required_->setAlignment(Qt::AlignRight);
 		label_commission_->setAlignment(Qt::AlignRight);
@@ -94,14 +87,11 @@ namespace fxcalc {
 
 		auto pip_validator        = new QIntValidator(0, 999999 );
 		edit_sl_pips_->setValidator( pip_validator );
-		// edit_tp_pips_->setValidator( pip_validator );
-		// edit_contract_size_->setValidator( pip_validator );
 
 		// create form labels
 		QLabel* label_account_balance   = new QLabel(tr("Account Balance"));
 		QLabel* label_account_currency  = new QLabel(tr("Account Denomination"));
 		QLabel* label_risk_percent      = new QLabel(tr("Risk, %"));
-		// QLabel* label_contract_size     = new QLabel(tr("Contract Size"));
 		QLabel* label_pips              = new QLabel(tr("Stop loss, pips"));
 		QLabel* label_instrument        = new QLabel(tr("Instrument"));
 		QLabel* label_units             = new QLabel(tr("Units"));
@@ -130,7 +120,6 @@ namespace fxcalc {
 		// create clipboard layouts
 		QHBoxLayout* layout_copy_units    = new QHBoxLayout;
 		QHBoxLayout* layout_copy_lots     = new QHBoxLayout;
-		QHBoxLayout* layout_refresh_rates = new QHBoxLayout;
 		QHBoxLayout* layout_pips          = new QHBoxLayout;
 
 		// combine clipboard button with line edits
@@ -138,14 +127,6 @@ namespace fxcalc {
 		layout_copy_units->addWidget(edit_units_);
 		layout_copy_lots->addWidget(btn_lots_clipboard_);
 		layout_copy_lots->addWidget(edit_lots_);
-
-		// combine refresh button with instrument
-		layout_refresh_rates->addWidget(cb_instrument_);
-		layout_refresh_rates->addWidget(btn_refresh_rates_);
-
-		// combine sl and tp edits
-		// layout_pips->addWidget(edit_sl_pips_);
-		// layout_pips->addWidget(edit_tp_pips_);
 
 		// set group layouts
 		group_inputs->setLayout( layout_inputs );
@@ -158,8 +139,6 @@ namespace fxcalc {
 		layout_inputs->addWidget(cb_account_currency_, 0, 1);
 		layout_inputs->addWidget(label_account_balance, 1, 0);
 		layout_inputs->addWidget(edit_account_balance_, 1, 1);
-		// layout_inputs->addWidget(label_contract_size, 2, 0);
-		// layout_inputs->addWidget(edit_contract_size_, 2, 1);
 		layout_inputs->addWidget(label_risk_percent, 2, 0);
 		layout_inputs->addWidget(edit_risk_percent_, 2, 1);
 		layout_inputs->addWidget(label_pips, 3, 0);
@@ -167,7 +146,7 @@ namespace fxcalc {
 		layout_inputs->addWidget(label_commission, 4, 0);
 		layout_inputs->addWidget(edit_commission_, 4, 1);
 		layout_inputs->addWidget(label_instrument, 5, 0);
-		layout_inputs->addLayout(layout_refresh_rates, 5, 1);
+		layout_inputs->addWidget(cb_instrument_, 5, 1);
 		layout_inputs->addWidget(label_instrument_rate_, 6, 0);
 		layout_inputs->addWidget(edit_instrument_rate_, 6, 1);
 		// - pos_size
@@ -175,8 +154,6 @@ namespace fxcalc {
 		layout_pos_size->addWidget(label_pip_value_, 0, 1);
 		layout_pos_size->addWidget(label_result_risk, 1, 0);
 		layout_pos_size->addWidget(label_result_risk_, 1, 1);
-		// layout_pos_size->addWidget(label_result_profit, 2, 0);
-		// layout_pos_size->addWidget(label_result_profit_, 2, 1);
 		layout_pos_size->addWidget(label_commissions, 2, 0);
 		layout_pos_size->addWidget(label_commission_, 2, 1);
 		layout_pos_size->addWidget(label_units, 3, 0);
@@ -208,17 +185,9 @@ namespace fxcalc {
 		return edit_risk_percent_;
 	}
 
-	// QLineEdit* Form::editContractSize() {
-	// 	return edit_contract_size_;
-	// }
-
 	QLineEdit* Form::editSLPips() {
 		return edit_sl_pips_;
 	}
-
-	// QLineEdit* Form::editTPPips() {
-	// 	return edit_tp_pips_;
-	// }
 
 	QLineEdit* Form::editUnits() {
 		return edit_units_;
@@ -256,10 +225,6 @@ namespace fxcalc {
 		return label_result_risk_;
 	}
 
-	// QLabel* Form::labelResultProfit() {
-	// 	return label_result_profit_;
-	// }
-
 	QLabel* Form::labelPipValue() {
 		return label_pip_value_;
 	}
@@ -278,10 +243,6 @@ namespace fxcalc {
 
 	QLabel* Form::labelCommission() {
 		return label_commission_;
-	}
-
-	QPushButton* Form::btnRefreshRates() {
-		return btn_refresh_rates_;
 	}
 
 	QPushButton* Form::btnCopyUnits() {

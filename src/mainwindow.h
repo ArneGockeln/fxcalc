@@ -19,10 +19,7 @@
 
 #include <map>
 
-#include "fixer.h"
 #include "form.h"
-
-#define FIXER_API_URL "https://api.exchangeratesapi.io/"
 
 namespace fxcalc {
 class MainWindow: public QMainWindow {
@@ -39,8 +36,6 @@ public:
 
 public slots:
 	void calculate();
-	void fetchExchangeRate();
-	void onAccountCurrencyChange();
 
 private:
 	void initForm();
@@ -48,10 +43,7 @@ private:
 	void load();
 
 	CalcMode calc_mode_;
-	bool use_custom_rate_;
 	Form* form_;
-	Fixer* api_;
-	std::map<QString, double> rates_;
 	std::map<QString, int> currency_priority_;
 };	
 };

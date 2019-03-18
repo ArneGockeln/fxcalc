@@ -14,8 +14,6 @@
 
 #include "mainwindow.h"
 
-#include <QDebug>
-
 #include <QDesktopWidget>
 #include <QClipboard>
 #include <QStatusBar>
@@ -34,7 +32,7 @@
 #include <cmath>
 
 namespace fxcalc {
-	MainWindow::MainWindow(): api_( new Fixer( FIXER_API_URL ) ), use_custom_rate_(false), calc_mode_(CalcMode::NORMAL) {
+	MainWindow::MainWindow(): calc_mode_(CalcMode::NORMAL) {
 		setWindowTitle( tr( "FX Calculator" ) );
 
 		auto screenRect = QApplication::desktop()->screenGeometry();
@@ -52,9 +50,22 @@ namespace fxcalc {
 		setMenuBar(bar);
 
 		// set about dialog
+		// load license text
+		QString copyright = "";
+		QFile license_file(":/license.txt");
+		if ( ! license_file.open( QIODevice::ReadOnly ) ) {
+			QMessageBox::critical(this, tr("Error"), tr("Can't load license.txt!") );
+		}
+		QTextStream in(&license_file);
+		while( ! in.atEnd() ) {
+			copyright.append( in.readLine() ).append("\n");
+		}
+		license_file.close();
+
 		QAction* action_about = new QAction(tr("&About"), this);
-		connect(action_about, &QAction::triggered, this, [this](){
-			QMessageBox::about(this, tr("About FXCalc"), tr("This app is written by Arne Gockeln.\nMore about me https://arnegockeln.com.\nHappy trading."));
+		connect(action_about, &QAction::triggered, this, [this, copyright](){
+			QMessageBox::about(this, tr("About FXCalc"), 
+				tr("Version: %1.\nFramework: Qt/C++\nAuthor: Arne Gockeln\nUrl: https://arnegockeln.com\n\nLicense:\n%2").arg(PROJECT_VERSION).arg(copyright) );
 		});
 
 		QMenu* file = menuBar()->addMenu(tr("&File"));
@@ -130,31 +141,13 @@ namespace fxcalc {
 		// connections
 		connect( form_->editAccountBalance(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
 		connect( form_->editRiskPercent(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
-		// connect( form_->editContractSize(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
 		connect( form_->editSLPips(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
-		// connect( form_->editTPPips(), &QLineEdit::editingFinished, [this]() {
-		// 	calc_mode_ = CalcMode::TP_PIPS;
-		// 	calculate();
-		// });
 		connect( form_->editMarginRatio(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
 		connect( form_->editCommission(), &QLineEdit::editingFinished, this, &MainWindow::calculate );
-		connect( form_->editInstrumentRate(), &QLineEdit::editingFinished, [this](){
-			// calculate with custom exchange rate
-			use_custom_rate_ = true;
-			calculate();
-		});
-		connect( form_->editMarginInstrumentRate(), &QLineEdit::editingFinished, [this]() {
-			// calculate with custom exchange rate
-			use_custom_rate_ = true;
-			calculate();
-		});
-		connect( form_->cbInstrument(), &QComboBox::currentTextChanged, [this]() {
-			use_custom_rate_ = false;
-			calculate();
-		});
-		connect( form_->cbAccountCurrency(), &QComboBox::currentTextChanged, this, &MainWindow::onAccountCurrencyChange );
-		connect( form_->btnRefreshRates(), &QPushButton::clicked, this, &MainWindow::onAccountCurrencyChange );
-
+		connect( form_->editInstrumentRate(), &QLineEdit::editingFinished, this, &MainWindow::calculate);
+		connect( form_->editMarginInstrumentRate(), &QLineEdit::editingFinished, this, &MainWindow::calculate);
+		connect( form_->cbInstrument(), &QComboBox::currentTextChanged, this, &MainWindow::calculate);
+		connect( form_->cbAccountCurrency(), &QComboBox::currentTextChanged, this, &MainWindow::calculate );
 		connect( form_->btnCopyUnits(), &QPushButton::clicked, [this]() {
 			// copy units to clipboard
 			auto clipboard = QGuiApplication::clipboard();
@@ -174,56 +167,6 @@ namespace fxcalc {
 			}
 		});
 	}
-	
-	/**
-	 * If account currency is changed, fetch new exchange rate
-	 * SLOT
-	 */
-	void MainWindow::fetchExchangeRate() {
-		if ( api_ == nullptr ) {
-			QMessageBox::critical(this, tr("Error"), tr("The API is not initialized.") );
-			return;
-		}
-
-		// update status bar
-		statusBar()->showMessage( tr("Sending request for exchange rates...") );
-
-		// send latest request
-		api_->latest();
-
-		// handle json response
-		QObject::connect( api_, &Fixer::onResponse, [this](QJsonDocument doc) {
-			auto json = doc.object();
-			auto base = ( json.contains("base") ? json["base"].toString() : form_->cbAccountCurrency()->currentText() );
-			if ( json.contains( "rates" ) && json["rates"].isObject() ) {
-				auto rates = json["rates"].toObject();
-				foreach( const QString& key, rates.keys() ) {
-					auto value = rates.value( key );
-					// try to insert
-					auto insert = rates_.insert( std::pair<QString, double>( key, value.toDouble() ) );
-					if ( ! insert.second ) {
-						// failed, try to update
-						rates_[ key ] = value.toDouble();
-					}
-				}
-
-				statusBar()->showMessage( tr("Exchange rates updated."), 5000 );
-
-				// reset use custom rate
-				use_custom_rate_ = false;
-
-				// update
-				calculate();
-			} else {
-				QMessageBox::information(this, tr("Info"), tr("No rates found.") );
-			}
-		});
-		// error response
-		QObject::connect( api_, &Fixer::onError, [this](const QString msg) {
-			statusBar()->showMessage( tr("API Error."), 5000 );
-			QMessageBox::critical(this, tr("Error"), msg);
-		});
-	}
 
 	/**
 	 * Calculate on value change
@@ -236,7 +179,6 @@ namespace fxcalc {
 		if ( form_->editRiskPercent()->text().isEmpty() ) return;
 		if ( form_->editAccountBalance()->text().isEmpty() ) return;
 		if ( form_->editSLPips()->text().isEmpty() ) return;
-		if ( rates_.size() == 0 ) return;
 
 		//
 		// ------------ CONVERT DOUBLE and INTEGER VALUES
@@ -281,30 +223,10 @@ namespace fxcalc {
 				margin_ratio = 0;
 			}
 		}
-
-		// int tp_pips = 0;
-		// if ( ! form_->editTPPips()->text().isEmpty() ) {
-		// 	ok = false;
-		// 	tp_pips = QLocale::system().toInt( form_->editTPPips()->text(), &ok );
-		// 	if ( ! ok ) {
-		// 		statusBar()->showMessage(tr("Couldn't convert take profit pips to int."), 3000);
-		// 	}
-		// }
-
-		// int contract_size = 100000;
-		// if ( ! form_->editContractSize()->text().isEmpty() ) {
-		// 	ok = false;
-		// 	contract_size = QLocale::system().toInt( form_->editContractSize()->text(), &ok );
-		// 	if ( ! ok ) {
-		// 		statusBar()->showMessage(tr("Couldn't convert contract size to int."), 3000 );
-		// 		return;
-		// 	}
-		// }
 		
 		//
 		// ----------------------- DEFAULT VALUES
 		// 
-		//double tp_rate           = 0;
 		double contract_size     = 100000;
 		double current_price     = 1;
 		double point_size        = 0.0001;
@@ -334,7 +256,7 @@ namespace fxcalc {
 
 		if ( quote_currency == "JPY" ) {
 			instrument_precision = 3;
-			point_size           = 0.001;
+			point_size           = 0.01;
 		}
 
 		// find rate for the second currency
@@ -342,22 +264,12 @@ namespace fxcalc {
 
 			form_->labelInstrumentRate()->setText(tr("Current ask ") + account_currency + quote_currency );
 
-			if ( ! use_custom_rate_ ) {
-				auto it = rates_.find( quote_currency );
-				if ( it != rates_.end() ) {
-					current_price = it->second;
-
-					// set line edit with current price
-					form_->editInstrumentRate()->setText( QLocale::system().toString( current_price, 'f', instrument_precision ) );
-				}	
-			} else {
-				ok = false;
-				if ( ! form_->editInstrumentRate()->text().isEmpty() ) {
-					current_price = QLocale::system().toDouble( form_->editInstrumentRate()->text(), &ok );
-					if ( ! ok ) {
-						statusBar()->showMessage(tr("Couldn't convert custom exchange rate to double."), 3000 );
-						return;
-					}
+			ok = false;
+			if ( ! form_->editInstrumentRate()->text().isEmpty() ) {
+				current_price = QLocale::system().toDouble( form_->editInstrumentRate()->text(), &ok );
+				if ( ! ok ) {
+					statusBar()->showMessage(tr("Couldn't convert custom exchange rate to double."), 3000 );
+					return;
 				}
 			}
 		}
@@ -404,19 +316,12 @@ namespace fxcalc {
 		double margin_price = 1;
 		double margin       = 0;
 		if ( base_currency != account_currency ) {
-			if ( ! use_custom_rate_ ) {
-				auto it = rates_.find( base_currency );
-				if ( it != rates_.end() ) {
-					margin_price = 1 / it->second;
-				}
-			} else {
-				ok = false;
-				if ( ! form_->editMarginInstrumentRate()->text().isEmpty() ) {
-					margin_price = QLocale::system().toDouble( form_->editMarginInstrumentRate()->text(), &ok );
-					if ( ! ok ) {
-						statusBar()->showMessage( tr("Couldn't convert custom margin rate to double."), 3000);
-						return;
-					}
+			ok = false;
+			if ( ! form_->editMarginInstrumentRate()->text().isEmpty() ) {
+				margin_price = QLocale::system().toDouble( form_->editMarginInstrumentRate()->text(), &ok );
+				if ( ! ok ) {
+					statusBar()->showMessage( tr("Couldn't convert custom margin rate to double."), 3000);
+					return;
 				}
 			}
 		}
@@ -425,18 +330,6 @@ namespace fxcalc {
 
 		// calculate lots
 		double lots = ( units / contract_size );
-
-		// calculate profit
-		// Rate of Exit * Profit in Points * Lot Size of Exit * Point Value of Exit
-		/*double profit = 0;
-
-		if ( calc_mode_ == CalcMode::TP_PIPS ) {
-			tp_rate = current_price + ( point_size * tp_pips );	
-		} else if ( calc_mode_ == CalcMode::TP_RATE ) {
-			tp_pips = std::abs( current_price - tp_rate ) * ( 1 / point_size );
-		}
-
-		profit = ( tp_pips * point_size ) * current_price * units;*/
 
 		// calculate commissions for entry and exit
 		if ( commissions > 0 ) {
@@ -453,15 +346,10 @@ namespace fxcalc {
 		form_->labelPipValue()->setText( QLocale::system().toString( unit_costs * contract_size, 'f', 2 ) + " " + account_currency );
 		// set label with money risk
 		form_->labelResultRisk()->setText( QLocale::system().toString( risk, 'f', 2 ) + " " + account_currency );
-		// set label with money profit
-		//form_->labelResultProfit()->setText( QLocale::system().toString( profit, 'f', 2 ) + " " + account_currency );
 		// set label margin requirements
 		form_->labelMarginRequired()->setText( QLocale::system().toString( margin, 'f', 2 ) + " " + account_currency );
 		// set label for commissions
 		form_->labelCommission()->setText( QLocale::system().toString( commissions, 'f', 2 ) + " " + account_currency );
-
-		// set tp pips
-		//form_->editTPPips()->setText( QString::number( tp_pips ) );
 		// set label units
 		form_->editUnits()->setText( QString::number( units, 'f', 0 ) );
 		// set label lots
@@ -473,17 +361,6 @@ namespace fxcalc {
 		statusBar()->clearMessage();
 		// rest calc mode
 		calc_mode_ = CalcMode::NORMAL;
-	}
-
-	// slot
-	void MainWindow::onAccountCurrencyChange() {
-		if ( api_ == nullptr ) return;
-
-		// set base currency
-		api_->setBaseCurrency( form_->cbAccountCurrency()->currentText() );
-
-		// fetch exchange rate
-		fetchExchangeRate();
 	}
 
 	// save form data to file
@@ -503,23 +380,11 @@ namespace fxcalc {
 		QJsonObject json;
 		json["balance"]      = form_->editAccountBalance()->text();
 		json["risk"]         = form_->editRiskPercent()->text();
-		//json["contractsize"] = form_->editContractSize()->text();
 		json["slpips"]       = form_->editSLPips()->text();
-		//json["tppips"]       = form_->editTPPips()->text();
 		json["commission"]   = form_->editCommission()->text();
 		json["marginratio"]  = form_->editMarginRatio()->text();
 		json["currency"]     = form_->cbAccountCurrency()->currentText();
 		json["instrument"]   = form_->cbInstrument()->currentText();
-
-		QJsonArray rates;
-		for( auto& pair : rates_ ) {
-			QJsonObject json_pair;
-			json_pair[ pair.first ] = pair.second;
-
-			rates.append( json_pair );
-		}
-
-		json["rates"] = rates;
 
 		QJsonDocument doc(json);
 
@@ -535,12 +400,9 @@ namespace fxcalc {
 
 		QFile loadFile( configLocation );
 		if ( ! loadFile.open( QIODevice::ReadOnly ) ) {
-			qWarning() << "Couldn't open" << configLocation;
+			statusBar()->showMessage( tr("Couldn't open %1").arg(configLocation), 3000 );
 			return;
 		}
-
-		// defaults
-		// form_->editContractSize()->setText( QStringLiteral("100000") );
 
 		auto data = loadFile.readAll();
 		QJsonDocument doc( QJsonDocument::fromJson( data ) );
@@ -552,15 +414,9 @@ namespace fxcalc {
 		if ( json.contains("risk") ) {
 			form_->editRiskPercent()->setText( json["risk"].toString() );
 		}
-		// if ( json.contains("contractsize") ) {
-		// 	form_->editContractSize()->setText( json["contractsize"].toString() );
-		// }
 		if ( json.contains("slpips") ) {
 			form_->editSLPips()->setText( json["slpips"].toString() );
 		}
-		// if ( json.contains("tppips") ) {
-		// 	form_->editTPPips()->setText( json["tppips"].toString() );
-		// }
 		if ( json.contains("commission") ) {
 			form_->editCommission()->setText( json["commission"].toString() );
 		}
@@ -572,26 +428,6 @@ namespace fxcalc {
 		}
 		if( json.contains("instrument") ) {
 			form_->cbInstrument()->setCurrentText( json["instrument"].toString() );
-		}
-		if ( json.contains("rates") ) {
-			rates_.clear();
-			auto rates = json["rates"].toArray();
-			for( int i = 0; i < rates.size(); ++i ) {
-				QJsonObject rate = rates[i].toObject();
-				auto key = rate.keys()[0];
-				auto value = rate.value( key );
-
-				auto insert = rates_.insert( std::pair<QString, double>( key, value.toDouble() ) );
-				if ( ! insert.second ) {
-					// update
-					rates_[ key ] = value.toDouble();
-				}
-
-				// update current ask price
-				if ( key == form_->cbAccountCurrency()->currentText() ) {
-					form_->editInstrumentRate()->setText( value.toString() );
-				}
-			}
 		}
 
 		calculate();

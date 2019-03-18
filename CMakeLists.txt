@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.8)
 project(fxcalc)
 
+set(PROJECT_VERSION 1.4)
+
 # Set this to your Qt installation
 set(CMAKE_PREFIX_PATH ~/sourcecode/sdk/QtLatest/5.12.0/clang_64)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
@@ -30,9 +32,8 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release")
 # Identify MacOS bundle
 set(OS_BUNDLE "MACOSX_BUNDLE")
 set(COMPANY "Arne Gockeln")
-set(COPYRIGHT "Copyright (c) 2019 Arne Gockeln. All rights reserved.")
 set(IDENTIFIER "com.arnegockeln.fxcalc")
-set(PROJECT_VERSION 1.1)
+set(COPYRIGHT "Arne Gockeln")
 set(MACOSX_BUNDLE_BUNDLE_NAME FXCalc)
 set(MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION})
 set(MACOSX_BUNDLE_LONG_VERSION_STRING ${PROJECT_VERSION})
@@ -51,6 +52,11 @@ file(GLOB SOURCE_FILES ${PROJECT_SOURCE_DIR}/*.cpp)
 
 # executable
 add_executable(${PROJECT_NAME} ${OS_BUNDLE} ${SOURCE_FILES} ${RESOURCE_FILES})
+# make values available in c++ files
+target_compile_definitions(${PROJECT_NAME} PRIVATE 
+	PROJECT_VERSION="${PROJECT_VERSION}"
+)
+
 if(CMAKE_BUILD_TYPE STREQUAL "Release")
 set_target_properties(${PROJECT_NAME} PROPERTIES 
 	MACOSX_BUNDLE TRUE 
