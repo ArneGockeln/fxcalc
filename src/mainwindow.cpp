@@ -385,6 +385,7 @@ namespace fxcalc {
 		json["marginratio"]  = form_->editMarginRatio()->text();
 		json["currency"]     = form_->cbAccountCurrency()->currentText();
 		json["instrument"]   = form_->cbInstrument()->currentText();
+		json["currentask"]   = form_->editInstrumentRate()->text();
 
 		QJsonDocument doc(json);
 
@@ -428,6 +429,9 @@ namespace fxcalc {
 		}
 		if( json.contains("instrument") ) {
 			form_->cbInstrument()->setCurrentText( json["instrument"].toString() );
+		}
+		if ( json.contains("currentask") ) {
+			form_->editInstrumentRate()->setText( json["currentask"].toString() );
 		}
 
 		calculate();
