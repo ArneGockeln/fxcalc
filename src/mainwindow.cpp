@@ -65,7 +65,7 @@ namespace fxcalc {
 		QAction* action_about = new QAction(tr("&About"), this);
 		connect(action_about, &QAction::triggered, this, [this, copyright](){
 			QMessageBox::about(this, tr("About FXCalc"), 
-				tr("Version: %1.\nFramework: Qt/C++\nAuthor: Arne Gockeln\nUrl: https://arnegockeln.com\n\nLicense:\n%2").arg(PROJECT_VERSION).arg(copyright) );
+				tr("FX Calculator\nVersion: %1.\nAuthor: Arne Gockeln\nUrl: https://arnegockeln.com").arg(PROJECT_VERSION)/* \n\nLicense:\n%2 .arg(copyright) */ );
 		});
 
 		QMenu* file = menuBar()->addMenu(tr("&File"));
