@@ -3,6 +3,8 @@ FX Position Calculator
 
 This application is a tool to calculate forex position sizes as lots and units. Also it shows how much margin is required to open the position.
 
+You can find more information about the equations and a binary to download here: https://www.arnegockeln.com/2019/03/calculate-forex-position-and-margin-requirements.html
+
 # Compile mac app
 To compile a macos app just do it like this:
 
