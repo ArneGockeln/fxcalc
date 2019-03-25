@@ -1,7 +1,7 @@
 # FX Calc
 FX Position Calculator
 
-This application is a tool to calculate forex position sizes as lots and quantity. Also it shows how much margin is required to open the position.
+This application is a tool to calculate forex position sizes as lots and units. Also it shows how much margin is required to open the position.
 
 # Compile mac app
 To compile a macos app just do it like this:
